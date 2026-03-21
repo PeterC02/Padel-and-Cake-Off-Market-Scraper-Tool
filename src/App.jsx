@@ -2,23 +2,453 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 const L = window.L;
 
-const QUICK_LOCATIONS = [
-  { name: 'Wokingham', lat: 51.411, lng: -0.834 },
-  { name: 'Richmond', lat: 51.461, lng: -0.303 },
-  { name: 'Guildford', lat: 51.236, lng: -0.571 },
-  { name: 'Bracknell', lat: 51.416, lng: -0.749 },
-  { name: 'Woking', lat: 51.316, lng: -0.556 },
-  { name: 'London', lat: 51.507, lng: -0.128 },
-  { name: 'Manchester', lat: 53.483, lng: -2.244 },
-  { name: 'Birmingham', lat: 52.486, lng: -1.890 },
-  { name: 'Leeds', lat: 53.801, lng: -1.549 },
-  { name: 'Bristol', lat: 51.455, lng: -2.588 },
-];
+// ─── i18n TRANSLATIONS ─────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    appTitle: '🏸 Padel Scout',
+    appSubtitle: 'OFF-MARKET LAND TOOL',
+    searchTab: '🔍 Search',
+    pipelineTab: '📊 Pipeline',
+    resourcesTab: '📚 Info',
+    searchLocation: 'Search any location',
+    enterPostcode_UK: 'Enter UK postcode (e.g. GU1 4QA)',
+    enterPostcode_DE: 'Enter German postal code (e.g. 80331)',
+    enterPostcode_HU: 'Enter Hungarian postal code (e.g. 1051)',
+    go: 'Go',
+    clickMapHint: 'Or click anywhere on the map to set search centre',
+    quickJump: 'Quick jump',
+    searchRadius: 'Search radius',
+    siteTypes: 'Site types to search',
+    searchArea: 'Search this area',
+    centre: 'Centre',
+    sitesFound: 'sites found',
+    showDismissed: 'Show dismissed',
+    byScore: 'By Score',
+    byType: 'By Type',
+    all: 'All',
+    pipelineFunnel: 'Pipeline funnel',
+    exportCSV: '📥 Export Pipeline to CSV',
+    noSavedSites: 'No saved sites yet. Search and save sites to build your pipeline.',
+    status: 'Status',
+    notes: 'Notes',
+    notesPlaceholder: 'Owner name, phone, observations, next actions...',
+    remove: '🗑️ Remove',
+    savedToPipeline: '✓ Saved to Pipeline',
+    saveToPipeline: '💾 Save to Pipeline',
+    searchCentre: 'Search Centre',
+    radius: 'Radius',
+    postcodeNotFound_UK: 'Postcode not found. Try another UK postcode.',
+    postcodeNotFound_DE: 'Postal code not found. Try another German postal code.',
+    postcodeNotFound_HU: 'Postal code not found. Try another Hungarian postal code.',
+    postcodeFailed: 'Failed to lookup postal code. Check your connection.',
+    startingSearch: 'Starting search...',
+    searching: 'Searching',
+    satellite: '📡 Satellite',
+    streetView: '🚶 Street View',
+    osm: '🗺️ OSM',
+    landRegistry: '📋 Land Registry',
+    idealForCourts: '✅ ideal for 3 courts',
+    mayBeSmall: '⚠️ may be small',
+    workable: '👍 workable',
+    veryLarge: '⚠️ very large',
+    scoreLegend: 'Score',
+    selectCountry: 'Country',
+    language: 'Language',
+    // Site types
+    tennisCourts: 'Tennis Courts',
+    surfaceCarParks: 'Surface Car Parks',
+    disusedLand: 'Disused/Abandoned Land',
+    multiSportCourts: 'Multi-Sport Courts (MUGAs)',
+    churches: 'Churches (car parks/grounds)',
+    schools: 'Schools (grounds/courts)',
+    // Resources
+    brownfieldRegisters: 'Brownfield / development registers',
+    playingPitchStrategies: 'Playing pitch strategies',
+    planningPortals: 'Planning application portals',
+    keyTools: 'Key tools',
+    padelReference: 'Padel court quick reference',
+    singleCourt: 'Single court:',
+    threeCourts: '3 courts (ideal):',
+    sweetSpot: 'Sweet spot:',
+    surface: 'Surface:',
+    height: 'Height:',
+    access: 'Access:',
+    planning: 'Planning:',
+    singleCourtDesc: '20m × 10m (200m²) + run-off = ~300m²',
+    threeCourtsDesc: '60m × 10m or 40m × 20m = 600–800m²',
+    sweetSpotDesc: '600–2,500m² sites',
+    surfaceDesc: 'Asphalt/concrete base preferred',
+    heightDesc: 'Min 8m clearance',
+    accessDesc: 'Vehicle access + customer parking',
+    planningDesc_UK: 'Usually D2 (assembly & leisure) use class',
+    planningDesc_DE: 'Usually Sondergebiet (SO) or Gemeinbedarf zoning',
+    planningDesc_HU: 'Usually Különleges terület (K) or Sport (Sp) zoning',
+    // Statuses
+    new: 'new',
+    satelliteChecked: 'satellite checked',
+    ownerFound: 'owner found',
+    contacted: 'contacted',
+    replied: 'replied',
+    viewing: 'viewing',
+    negotiating: 'negotiating',
+    secured: 'secured',
+    dead: 'dead',
+  },
+  de: {
+    appTitle: '🏸 Padel Scout',
+    appSubtitle: 'OFF-MARKET GRUNDSTÜCKSSUCHE',
+    searchTab: '🔍 Suche',
+    pipelineTab: '📊 Pipeline',
+    resourcesTab: '📚 Info',
+    searchLocation: 'Standort suchen',
+    enterPostcode_UK: 'UK-Postleitzahl eingeben (z.B. GU1 4QA)',
+    enterPostcode_DE: 'Deutsche PLZ eingeben (z.B. 80331)',
+    enterPostcode_HU: 'Ungarische PLZ eingeben (z.B. 1051)',
+    go: 'Los',
+    clickMapHint: 'Oder klicken Sie auf die Karte, um das Suchzentrum festzulegen',
+    quickJump: 'Schnellauswahl',
+    searchRadius: 'Suchradius',
+    siteTypes: 'Zu suchende Standorttypen',
+    searchArea: 'Dieses Gebiet durchsuchen',
+    centre: 'Zentrum',
+    sitesFound: 'Standorte gefunden',
+    showDismissed: 'Ausgeblendete anzeigen',
+    byScore: 'Nach Bewertung',
+    byType: 'Nach Typ',
+    all: 'Alle',
+    pipelineFunnel: 'Pipeline-Übersicht',
+    exportCSV: '📥 Pipeline als CSV exportieren',
+    noSavedSites: 'Noch keine gespeicherten Standorte. Suchen und speichern Sie Standorte, um Ihre Pipeline aufzubauen.',
+    status: 'Status',
+    notes: 'Notizen',
+    notesPlaceholder: 'Eigentümer, Telefon, Beobachtungen, nächste Schritte...',
+    remove: '🗑️ Entfernen',
+    savedToPipeline: '✓ In Pipeline gespeichert',
+    saveToPipeline: '💾 In Pipeline speichern',
+    searchCentre: 'Suchzentrum',
+    radius: 'Radius',
+    postcodeNotFound_UK: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere UK-PLZ.',
+    postcodeNotFound_DE: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere deutsche PLZ.',
+    postcodeNotFound_HU: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere ungarische PLZ.',
+    postcodeFailed: 'PLZ-Suche fehlgeschlagen. Prüfen Sie Ihre Verbindung.',
+    startingSearch: 'Suche wird gestartet...',
+    searching: 'Suche',
+    satellite: '📡 Satellit',
+    streetView: '🚶 Straßenansicht',
+    osm: '🗺️ OSM',
+    landRegistry: '📋 Grundbuch',
+    idealForCourts: '✅ ideal für 3 Plätze',
+    mayBeSmall: '⚠️ möglicherweise zu klein',
+    workable: '👍 nutzbar',
+    veryLarge: '⚠️ sehr groß',
+    scoreLegend: 'Bewertung',
+    selectCountry: 'Land',
+    language: 'Sprache',
+    tennisCourts: 'Tennisplätze',
+    surfaceCarParks: 'Oberflächenparkplätze',
+    disusedLand: 'Stillgelegte/Aufgegebene Flächen',
+    multiSportCourts: 'Multisportplätze (MUGAs)',
+    churches: 'Kirchen (Parkplätze/Grundstücke)',
+    schools: 'Schulen (Gelände/Plätze)',
+    brownfieldRegisters: 'Brachflächen- / Entwicklungsregister',
+    playingPitchStrategies: 'Sportplatzstrategien',
+    planningPortals: 'Baugenehmigungsportale',
+    keyTools: 'Wichtige Werkzeuge',
+    padelReference: 'Padel-Platz Kurzreferenz',
+    singleCourt: 'Einzelplatz:',
+    threeCourts: '3 Plätze (ideal):',
+    sweetSpot: 'Optimale Größe:',
+    surface: 'Oberfläche:',
+    height: 'Höhe:',
+    access: 'Zugang:',
+    planning: 'Bauplanung:',
+    singleCourtDesc: '20m × 10m (200m²) + Auslauf = ~300m²',
+    threeCourtsDesc: '60m × 10m oder 40m × 20m = 600–800m²',
+    sweetSpotDesc: '600–2.500m² Grundstücke',
+    surfaceDesc: 'Asphalt-/Betonbasis bevorzugt',
+    heightDesc: 'Min. 8m lichte Höhe',
+    accessDesc: 'Fahrzeugzugang + Kundenparkplätze',
+    planningDesc_UK: 'Normalerweise D2 (Versammlungs- & Freizeitnutzung)',
+    planningDesc_DE: 'Normalerweise Sondergebiet (SO) oder Gemeinbedarfsfläche',
+    planningDesc_HU: 'Normalerweise Különleges terület (K) oder Sport (Sp)',
+    new: 'neu',
+    satelliteChecked: 'Satellit geprüft',
+    ownerFound: 'Eigentümer gefunden',
+    contacted: 'kontaktiert',
+    replied: 'geantwortet',
+    viewing: 'Besichtigung',
+    negotiating: 'Verhandlung',
+    secured: 'gesichert',
+    dead: 'tot',
+  },
+  hu: {
+    appTitle: '🏸 Padel Scout',
+    appSubtitle: 'OFF-MARKET TELEKKERESÖ ESZKÖZ',
+    searchTab: '🔍 Keresés',
+    pipelineTab: '📊 Pipeline',
+    resourcesTab: '📚 Infó',
+    searchLocation: 'Helyszín keresése',
+    enterPostcode_UK: 'Adjon meg UK irányítószámot (pl. GU1 4QA)',
+    enterPostcode_DE: 'Adjon meg német irányítószámot (pl. 80331)',
+    enterPostcode_HU: 'Adjon meg magyar irányítószámot (pl. 1051)',
+    go: 'Mehet',
+    clickMapHint: 'Vagy kattintson a térképre a keresési központ beállításához',
+    quickJump: 'Gyors ugrás',
+    searchRadius: 'Keresési sugár',
+    siteTypes: 'Keresendő helyszíntípusok',
+    searchArea: 'Keresés ezen a területen',
+    centre: 'Központ',
+    sitesFound: 'helyszín található',
+    showDismissed: 'Elvetettek mutatása',
+    byScore: 'Pontszám szerint',
+    byType: 'Típus szerint',
+    all: 'Összes',
+    pipelineFunnel: 'Pipeline áttekintés',
+    exportCSV: '📥 Pipeline exportálása CSV-be',
+    noSavedSites: 'Még nincsenek mentett helyszínek. Keressen és mentsen helyszíneket a pipeline felépítéséhez.',
+    status: 'Állapot',
+    notes: 'Jegyzetek',
+    notesPlaceholder: 'Tulajdonos neve, telefon, megfigyelések, következő lépések...',
+    remove: '🗑️ Eltávolítás',
+    savedToPipeline: '✓ Mentve a pipeline-ba',
+    saveToPipeline: '💾 Mentés a pipeline-ba',
+    searchCentre: 'Keresési központ',
+    radius: 'Sugár',
+    postcodeNotFound_UK: 'Irányítószám nem található. Próbáljon másik UK irányítószámot.',
+    postcodeNotFound_DE: 'Irányítószám nem található. Próbáljon másik német irányítószámot.',
+    postcodeNotFound_HU: 'Irányítószám nem található. Próbáljon másik magyar irányítószámot.',
+    postcodeFailed: 'Irányítószám keresése sikertelen. Ellenőrizze a kapcsolatot.',
+    startingSearch: 'Keresés indítása...',
+    searching: 'Keresés',
+    satellite: '📡 Műhold',
+    streetView: '🚶 Utcakép',
+    osm: '🗺️ OSM',
+    landRegistry: '📋 Földhivatal',
+    idealForCourts: '✅ ideális 3 pályához',
+    mayBeSmall: '⚠️ lehet, hogy kicsi',
+    workable: '👍 használható',
+    veryLarge: '⚠️ nagyon nagy',
+    scoreLegend: 'Pontszám',
+    selectCountry: 'Ország',
+    language: 'Nyelv',
+    tennisCourts: 'Teniszpályák',
+    surfaceCarParks: 'Felszíni parkolók',
+    disusedLand: 'Elhagyott/Használaton kívüli terület',
+    multiSportCourts: 'Multisport pályák (MUGA-k)',
+    churches: 'Templomok (parkolók/telkek)',
+    schools: 'Iskolák (udvarok/pályák)',
+    brownfieldRegisters: 'Barnamezős / fejlesztési nyilvántartások',
+    playingPitchStrategies: 'Sportpálya stratégiák',
+    planningPortals: 'Építési engedélyezési portálok',
+    keyTools: 'Fontos eszközök',
+    padelReference: 'Padel pálya gyors referencia',
+    singleCourt: 'Egy pálya:',
+    threeCourts: '3 pálya (ideális):',
+    sweetSpot: 'Optimális méret:',
+    surface: 'Felület:',
+    height: 'Magasság:',
+    access: 'Megközelítés:',
+    planning: 'Építészeti tervezés:',
+    singleCourtDesc: '20m × 10m (200m²) + kifutó = ~300m²',
+    threeCourtsDesc: '60m × 10m vagy 40m × 20m = 600–800m²',
+    sweetSpotDesc: '600–2.500m² telkek',
+    surfaceDesc: 'Aszfalt/beton alap előnyben',
+    heightDesc: 'Min. 8m szabad magasság',
+    accessDesc: 'Járművel megközelíthető + ügyfélparkoló',
+    planningDesc_UK: 'Általában D2 (gyülekezési & szabadidő) besorolás',
+    planningDesc_DE: 'Általában Sondergebiet (SO) vagy Gemeinbedarf övezet',
+    planningDesc_HU: 'Általában Különleges terület (K) vagy Sport (Sp) övezet',
+    new: 'új',
+    satelliteChecked: 'műhold ellenőrzött',
+    ownerFound: 'tulajdonos megtalálva',
+    contacted: 'megkeresve',
+    replied: 'válaszolt',
+    viewing: 'megtekintés',
+    negotiating: 'tárgyalás',
+    secured: 'biztosított',
+    dead: 'halott',
+  },
+};
+
+// ─── COUNTRY CONFIGURATIONS ─────────────────────────────────────────────────────
+const COUNTRY_CONFIGS = {
+  UK: {
+    id: 'UK',
+    flag: '🇬🇧',
+    name: 'United Kingdom',
+    center: { lat: 51.411, lng: -0.834 },
+    zoom: 13,
+    quickLocations: [
+      { name: 'Wokingham', lat: 51.411, lng: -0.834 },
+      { name: 'Richmond', lat: 51.461, lng: -0.303 },
+      { name: 'Guildford', lat: 51.236, lng: -0.571 },
+      { name: 'Bracknell', lat: 51.416, lng: -0.749 },
+      { name: 'Woking', lat: 51.316, lng: -0.556 },
+      { name: 'London', lat: 51.507, lng: -0.128 },
+      { name: 'Manchester', lat: 53.483, lng: -2.244 },
+      { name: 'Birmingham', lat: 52.486, lng: -1.890 },
+      { name: 'Leeds', lat: 53.801, lng: -1.549 },
+      { name: 'Bristol', lat: 51.455, lng: -2.588 },
+    ],
+    geocodeUrl: (query) => `https://api.postcodes.io/postcodes/${encodeURIComponent(query.trim())}`,
+    parseGeocode: (data) => {
+      if (data.status === 200 && data.result) {
+        return { lat: data.result.latitude, lng: data.result.longitude };
+      }
+      return null;
+    },
+    landRegistryUrl: (lat, lng) => `https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${lat}&lng=${lng}`,
+    landRegistryLabel: (t) => t.landRegistry,
+    resources: (t) => ({
+      brownfield: [
+        { label: 'Wokingham Brownfield Register', url: 'https://www.wokingham.gov.uk/planning-policy/planning-policy-information/brownfield-land-register' },
+        { label: 'Richmond Brownfield Register', url: 'https://www.richmond.gov.uk/services/planning/planning_policy/brownfield_land_register' },
+        { label: 'Guildford Brownfield Register', url: 'https://www.guildford.gov.uk/brownfieldregister' },
+        { label: 'Bracknell Forest Brownfield Register', url: 'https://www.bracknell-forest.gov.uk/planning-and-building-control/planning/brownfield-land-register' },
+        { label: 'Woking Brownfield Register', url: 'https://www.woking.gov.uk/planning-and-building-control/planning-policy/brownfield-register' },
+      ],
+      pitchStrategies: [
+        { label: 'Wokingham Playing Pitch Strategy', url: 'https://www.wokingham.gov.uk/planning-policy/planning-policy-information/playing-pitch-strategy' },
+        { label: 'Richmond Playing Pitch Strategy', url: 'https://www.richmond.gov.uk/services/leisure_and_culture/sports_and_fitness/playing_pitch_strategy' },
+        { label: 'Guildford Playing Pitch Strategy', url: 'https://www.guildford.gov.uk/playingpitchstrategy' },
+      ],
+      planningPortals: [
+        { label: 'Wokingham Planning Portal', url: 'https://planning.wokingham.gov.uk/FastWeb/welcome.asp' },
+        { label: 'Richmond Planning Portal', url: 'https://www2.richmond.gov.uk/PlanData2/Planning_Search.aspx' },
+        { label: 'Guildford Planning Portal', url: 'https://www.guildford.gov.uk/planning/search' },
+        { label: 'Bracknell Forest Planning Portal', url: 'https://planapp.bracknell-forest.gov.uk/online-applications/' },
+        { label: 'Woking Planning Portal', url: 'https://caps.woking.gov.uk/online-applications/' },
+      ],
+      tools: [
+        { label: '🏠 HM Land Registry — Property Search', url: 'https://eservices.landregistry.gov.uk/wps/portal/Property_Search' },
+        { label: '📊 Active Places Power — Sport England', url: 'https://www.activeplacespower.com/' },
+        { label: '🎾 LTA Court Finder', url: 'https://www.lta.org.uk/play/ways-to-play/find-a-court/' },
+        { label: '🌍 Google Earth Pro (free)', url: 'https://www.google.com/earth/versions/#earth-pro' },
+        { label: '🗺️ MAGIC Map — Environmental designations', url: 'https://magic.defra.gov.uk/MagicMap.aspx' },
+        { label: '💷 Council Tax Band Lookup', url: 'https://www.tax.service.gov.uk/check-council-tax-band/search' },
+      ],
+    }),
+  },
+  DE: {
+    id: 'DE',
+    flag: '🇩🇪',
+    name: 'Deutschland',
+    center: { lat: 52.520, lng: 13.405 },
+    zoom: 11,
+    quickLocations: [
+      { name: 'Berlin', lat: 52.520, lng: 13.405 },
+      { name: 'München', lat: 48.137, lng: 11.576 },
+      { name: 'Hamburg', lat: 53.551, lng: 9.994 },
+      { name: 'Köln', lat: 50.938, lng: 6.960 },
+      { name: 'Frankfurt', lat: 50.110, lng: 8.682 },
+      { name: 'Stuttgart', lat: 48.775, lng: 9.183 },
+      { name: 'Düsseldorf', lat: 51.228, lng: 6.774 },
+      { name: 'Leipzig', lat: 51.340, lng: 12.375 },
+      { name: 'Dortmund', lat: 51.514, lng: 7.468 },
+      { name: 'Nürnberg', lat: 49.452, lng: 11.077 },
+    ],
+    geocodeUrl: (query) => `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(query.trim())}&country=Germany&format=json&limit=1`,
+    parseGeocode: (data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+      return null;
+    },
+    landRegistryUrl: (lat, lng) => `https://www.grundbuch.de/`,
+    landRegistryLabel: (t) => t.landRegistry,
+    resources: (t) => ({
+      brownfield: [
+        { label: 'Bundesinstitut für Bau-, Stadt- und Raumforschung (BBSR)', url: 'https://www.bbsr.bund.de/' },
+        { label: 'Berlin Geoportal — Flächennutzung', url: 'https://fbinter.stadt-berlin.de/fb/index.jsp' },
+        { label: 'Bayern Geoportal', url: 'https://geoportal.bayern.de/' },
+        { label: 'NRW Geoportal', url: 'https://www.geoportal.nrw/' },
+        { label: 'Brachflächenrecycling — Umweltbundesamt', url: 'https://www.umweltbundesamt.de/themen/boden-landwirtschaft/flaechensparen-boeden-landschaften-erhalten/brachflaechen' },
+      ],
+      pitchStrategies: [
+        { label: 'Deutscher Tennis Bund (DTB)', url: 'https://www.dtb-tennis.de/' },
+        { label: 'Deutscher Padel Verband', url: 'https://www.padelverband.de/' },
+        { label: 'DOSB Sportstättenstatistik', url: 'https://www.dosb.de/' },
+      ],
+      planningPortals: [
+        { label: 'Berlin — Bauaufsicht Online', url: 'https://www.berlin.de/ba-mitte/politik-und-verwaltung/aemter/stadtentwicklungsamt/bauaufsicht/' },
+        { label: 'München — Lokalbaukommission', url: 'https://www.muenchen.de/rathaus/Stadtverwaltung/Referat-fuer-Stadtplanung-und-Bauordnung/Lokalbaukommission.html' },
+        { label: 'Hamburg — Bauportal', url: 'https://www.hamburg.de/bsw/bauportal/' },
+        { label: 'Frankfurt — Bauaufsicht', url: 'https://frankfurt.de/service-und-rathaus/verwaltung/aemter-und-institutionen/bauaufsicht' },
+        { label: 'NRW — BauPortal.NRW', url: 'https://www.bauportal.nrw/' },
+      ],
+      tools: [
+        { label: '🏠 Grundbuch Online', url: 'https://www.grundbuch.de/' },
+        { label: '📊 BKG Geoportal — Bundesamt für Kartographie', url: 'https://www.bkg.bund.de/' },
+        { label: '🎾 Padel Courts Deutschland', url: 'https://www.padelcourts.de/' },
+        { label: '🌍 Google Earth Pro (kostenlos)', url: 'https://www.google.com/earth/versions/#earth-pro' },
+        { label: '🗺️ BayernAtlas', url: 'https://geoportal.bayern.de/bayernatlas/' },
+        { label: '💶 Boris — Bodenrichtwerte', url: 'https://www.boris.nrw.de/' },
+      ],
+    }),
+  },
+  HU: {
+    id: 'HU',
+    flag: '🇭🇺',
+    name: 'Magyarország',
+    center: { lat: 47.497, lng: 19.040 },
+    zoom: 12,
+    quickLocations: [
+      { name: 'Budapest', lat: 47.497, lng: 19.040 },
+      { name: 'Debrecen', lat: 47.531, lng: 21.626 },
+      { name: 'Szeged', lat: 46.253, lng: 20.148 },
+      { name: 'Miskolc', lat: 48.103, lng: 20.778 },
+      { name: 'Pécs', lat: 46.073, lng: 18.233 },
+      { name: 'Győr', lat: 47.687, lng: 17.634 },
+      { name: 'Nyíregyháza', lat: 47.955, lng: 21.717 },
+      { name: 'Kecskemét', lat: 46.906, lng: 19.691 },
+      { name: 'Székesfehérvár', lat: 47.186, lng: 18.422 },
+      { name: 'Szombathely', lat: 47.231, lng: 16.622 },
+    ],
+    geocodeUrl: (query) => `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(query.trim())}&country=Hungary&format=json&limit=1`,
+    parseGeocode: (data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+      return null;
+    },
+    landRegistryUrl: (lat, lng) => `https://www.foldhivatal.hu/`,
+    landRegistryLabel: (t) => t.landRegistry,
+    resources: (t) => ({
+      brownfield: [
+        { label: 'Lechner Tudásközpont — Területi tervezés', url: 'https://lfrfrftechner.hu/' },
+        { label: 'Budapest Főváros Kormányhivatala — Építésügy', url: 'https://www.kormanyhivatal.hu/hu/budapest' },
+        { label: 'e-Közmű — Közmű nyilvántartás', url: 'https://e-kozmu.hu/' },
+        { label: 'Országos Területrendezési Terv', url: 'https://www.oeny.hu/' },
+        { label: 'Nemzeti Fejlesztési Terv', url: 'https://www.palyazat.gov.hu/' },
+      ],
+      pitchStrategies: [
+        { label: 'Magyar Padel Szövetség', url: 'https://www.magyarpadel.hu/' },
+        { label: 'Magyar Tenisz Szövetség', url: 'https://www.huntennis.hu/' },
+        { label: 'Magyar Olimpiai Bizottság — Sportlétesítmények', url: 'https://www.mob.hu/' },
+      ],
+      planningPortals: [
+        { label: 'Budapest — Építésügyi Portál', url: 'https://epito.bm.hu/' },
+        { label: 'e-Építés — Elektronikus építési napló', url: 'https://www.e-epites.hu/' },
+        { label: 'Lechner Tudásközpont — Településrendezés', url: 'https://www.oeny.hu/' },
+        { label: 'Debrecen — Önkormányzat', url: 'https://www.debrecen.hu/' },
+        { label: 'Szeged — Városüzemeltetés', url: 'https://www.szeged.hu/' },
+      ],
+      tools: [
+        { label: '🏠 Földhivatal Online — Tulajdoni lap', url: 'https://www.foldhivatal.hu/' },
+        { label: '📊 Központi Statisztikai Hivatal', url: 'https://www.ksh.hu/' },
+        { label: '🎾 Magyar Padel', url: 'https://www.magyarpadel.hu/' },
+        { label: '🌍 Google Earth Pro (ingyenes)', url: 'https://www.google.com/earth/versions/#earth-pro' },
+        { label: '🗺️ Lechner Térkép', url: 'https://terkep.budapest.hu/' },
+        { label: '💰 Ingatlan.com — Telkek', url: 'https://www.ingatlan.com/' },
+      ],
+    }),
+  },
+};
 
 const SITE_TYPES = [
   {
     id: 'tennis',
-    label: 'Tennis Courts',
+    labelKey: 'tennisCourts',
     emoji: '🎾',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["leisure"="pitch"]["sport"="tennis"](around:${r},${lat},${lng});relation["leisure"="pitch"]["sport"="tennis"](around:${r},${lat},${lng}););out center body;`,
@@ -26,7 +456,7 @@ const SITE_TYPES = [
   },
   {
     id: 'car_park',
-    label: 'Surface Car Parks',
+    labelKey: 'surfaceCarParks',
     emoji: '🅿️',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="parking"]["parking"="surface"](around:${r},${lat},${lng});way["amenity"="parking"]["parking"!="multi-storey"]["parking"!="underground"](around:${r},${lat},${lng}););out center body;`,
@@ -34,7 +464,7 @@ const SITE_TYPES = [
   },
   {
     id: 'disused',
-    label: 'Disused/Abandoned Land',
+    labelKey: 'disusedLand',
     emoji: '🏚️',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["disused:leisure"](around:${r},${lat},${lng});way["disused:amenity"](around:${r},${lat},${lng});way["abandoned:leisure"](around:${r},${lat},${lng});way["abandoned:amenity"](around:${r},${lat},${lng});way["landuse"="brownfield"](around:${r},${lat},${lng}););out center body;`,
@@ -42,7 +472,7 @@ const SITE_TYPES = [
   },
   {
     id: 'muga',
-    label: 'Multi-Sport Courts (MUGAs)',
+    labelKey: 'multiSportCourts',
     emoji: '🏐',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["leisure"="pitch"]["sport"="multi"](around:${r},${lat},${lng});way["leisure"="pitch"]["sport"~"basketball|netball|volleyball"](around:${r},${lat},${lng}););out center body;`,
@@ -50,7 +480,7 @@ const SITE_TYPES = [
   },
   {
     id: 'church',
-    label: 'Churches (car parks/grounds)',
+    labelKey: 'churches',
     emoji: '⛪',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="place_of_worship"]["religion"="christian"](around:${r},${lat},${lng}););out center body;`,
@@ -58,13 +488,37 @@ const SITE_TYPES = [
   },
   {
     id: 'school',
-    label: 'Schools (grounds/courts)',
+    labelKey: 'schools',
     emoji: '🏫',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="school"](around:${r},${lat},${lng}););out center body;`,
     baseScore: 55,
   },
 ];
+
+// Status keys for translation lookup
+const STATUS_KEYS = {
+  'new': 'new',
+  'satellite checked': 'satelliteChecked',
+  'owner found': 'ownerFound',
+  'contacted': 'contacted',
+  'replied': 'replied',
+  'viewing': 'viewing',
+  'negotiating': 'negotiating',
+  'secured': 'secured',
+  'dead': 'dead',
+};
+
+// Helper to get translated label for a site type
+function getSiteTypeLabel(siteType, t) {
+  return t[siteType.labelKey] || siteType.labelKey;
+}
+
+// Helper to get translated status
+function getStatusLabel(status, t) {
+  const key = STATUS_KEYS[status];
+  return key ? (t[key] || status) : status;
+}
 
 const STATUSES = [
   'new',
@@ -220,6 +674,8 @@ function createSavedMarkerIcon() {
 }
 
 export default function PadelScout() {
+  const [country, setCountry] = useState('UK');
+  const [language, setLanguage] = useState('en');
   const [activeTab, setActiveTab] = useState('search');
   const [selectedTypes, setSelectedTypes] = useState(['tennis', 'car_park', 'disused', 'muga']);
   const [results, setResults] = useState([]);
@@ -237,6 +693,23 @@ export default function PadelScout() {
   const [highlightedSite, setHighlightedSite] = useState(null);
   const [sidebarView, setSidebarView] = useState('controls');
   const [dismissedSites, setDismissedSites] = useState(new Set());
+
+  // Translation and country config helpers
+  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  const countryConfig = COUNTRY_CONFIGS[country];
+  const quickLocations = countryConfig.quickLocations;
+
+  // Switch country handler — fly map to new country center and reset results
+  const switchCountry = useCallback((newCountry) => {
+    const cfg = COUNTRY_CONFIGS[newCountry];
+    setCountry(newCountry);
+    setSearchCenter({ lat: cfg.center.lat, lng: cfg.center.lng });
+    setResults([]);
+    setDismissedSites(new Set());
+    setPostcode('');
+    const map = mapInstanceRef.current;
+    if (map) map.flyTo([cfg.center.lat, cfg.center.lng], cfg.zoom, { duration: 1.2 });
+  }, []);
 
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -331,12 +804,12 @@ export default function PadelScout() {
 
     centerMarkerRef.current.bindPopup(
       `<div style="font-size:12px;text-align:center;">
-        <strong>Search Centre</strong><br/>
+        <strong>${t.searchCentre}</strong><br/>
         ${searchCenter.lat.toFixed(5)}, ${searchCenter.lng.toFixed(5)}<br/>
-        <em>Radius: ${(searchRadius / 1000).toFixed(1)}km</em>
+        <em>${t.radius}: ${(searchRadius / 1000).toFixed(1)}km</em>
       </div>`
     );
-  }, [searchCenter, searchRadius]);
+  }, [searchCenter, searchRadius, t]);
 
   // Update result markers on map
   useEffect(() => {
@@ -347,10 +820,11 @@ export default function PadelScout() {
     const filtered = results.filter((r) => r.score >= minScore);
     const sorted = [...filtered];
     if (sortBy === 'score') sorted.sort((a, b) => b.score - a.score);
-    else if (sortBy === 'type') sorted.sort((a, b) => a.siteType.label.localeCompare(b.siteType.label));
+    else if (sortBy === 'type') sorted.sort((a, b) => getSiteTypeLabel(a.siteType, t).localeCompare(getSiteTypeLabel(b.siteType, t)));
 
     sorted.forEach((site) => {
       const isSaved = savedSites.some((s) => s.id === site.id);
+      const siteCountryCfg = COUNTRY_CONFIGS[site.country || country] || countryConfig;
       const marker = L.marker([site.lat, site.lng], {
         icon: createMarkerIcon(site.score, site.siteType.emoji),
       });
@@ -362,20 +836,20 @@ export default function PadelScout() {
             <strong style="font-size:13px;flex:1;">${site.name}</strong>
             <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}</span>
           </div>
-          <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">${site.siteType.label} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
+          <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
           ${Object.keys(site.tags).length > 0 ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">${Object.entries(site.tags).filter(([k]) => !k.startsWith('addr:') && !k.startsWith('source') && k !== 'type').slice(0, 5).map(([k, v]) => `${k}=${v}`).join(' &middot; ')}</div>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-            <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">📡 Satellite</a>
-            <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">🚶 Street View</a>
-            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">🗺️ OSM</a>
-            <a href="https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${site.lat}&lng=${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">📋 Land Registry</a>
+            <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.satellite}</a>
+            <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.streetView}</a>
+            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.osm}</a>
+            <a href="${siteCountryCfg.landRegistryUrl(site.lat, site.lng)}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.landRegistry}</a>
           </div>
-          ${site.approxArea ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;">📐 ~${site.approxArea.toLocaleString()}m² ${site.approxArea >= 600 && site.approxArea <= 2500 ? '✅ ideal for 3 courts' : site.approxArea < 600 ? '⚠️ may be small' : site.approxArea <= 4000 ? '👍 workable' : '⚠️ very large'}</div>` : ''}
+          ${site.approxArea ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;">📐 ~${site.approxArea.toLocaleString()}m² ${site.approxArea >= 600 && site.approxArea <= 2500 ? t.idealForCourts : site.approxArea < 600 ? t.mayBeSmall : site.approxArea <= 4000 ? t.workable : t.veryLarge}</div>` : ''}
           ${site.reasons && site.reasons.length > 0 ? `<div style="font-size:9px;color:#94a3b8;margin-bottom:6px;">${site.reasons.join(' · ')}</div>` : ''}
           <button onclick="window.__padelSaveSite__('${site.id}')" style="
             width:100%;padding:6px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;
             background:${isSaved ? '#d1d5db' : '#22c55e'};color:white;
-          " ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved to Pipeline' : '💾 Save to Pipeline'}</button>
+          " ${isSaved ? 'disabled' : ''}>${isSaved ? t.savedToPipeline : t.saveToPipeline}</button>
         </div>
       `;
 
@@ -386,7 +860,7 @@ export default function PadelScout() {
 
       layer.addLayer(marker);
     });
-  }, [results, minScore, sortBy, savedSites]);
+  }, [results, minScore, sortBy, savedSites, t, country, countryConfig]);
 
   // Update saved site markers on pipeline tab
   useEffect(() => {
@@ -397,25 +871,26 @@ export default function PadelScout() {
     if (activeTab !== 'pipeline') return;
 
     savedSites.forEach((site) => {
+      const siteCountryCfg = COUNTRY_CONFIGS[site.country || country] || countryConfig;
       const marker = L.marker([site.lat, site.lng], {
         icon: createSavedMarkerIcon(),
       });
       marker.bindPopup(
         `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:200px;">
           <strong>${site.siteTypeEmoji || ''} ${site.name}</strong><br/>
-          <span style="font-size:11px;color:${STATUS_COLORS[site.status]};font-weight:600;text-transform:uppercase;">${site.status}</span><br/>
+          <span style="font-size:11px;color:${STATUS_COLORS[site.status]};font-weight:600;text-transform:uppercase;">${getStatusLabel(site.status, t)}</span><br/>
           <div style="font-size:11px;color:#6b7280;margin:4px 0;">${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">📡 Satellite</a>
-            <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">🚶 Street View</a>
-            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">🗺️ OSM</a>
-            <a href="https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${site.lat}&lng=${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">📋 Land Registry</a>
+            <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.satellite}</a>
+            <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.streetView}</a>
+            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.osm}</a>
+            <a href="${siteCountryCfg.landRegistryUrl(site.lat, site.lng)}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.landRegistry}</a>
           </div>
         </div>`
       );
       layer.addLayer(marker);
     });
-  }, [savedSites, activeTab]);
+  }, [savedSites, activeTab, t, country, countryConfig]);
 
   // Expose save function to popup buttons
   useEffect(() => {
@@ -436,34 +911,43 @@ export default function PadelScout() {
     if (!postcode.trim()) return;
     setError(null);
     try {
-      const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim())}`);
+      const url = countryConfig.geocodeUrl(postcode);
+      const fetchOpts = {};
+      // Nominatim requires a User-Agent header
+      if (url.includes('nominatim')) {
+        fetchOpts.headers = { 'User-Agent': 'PadelScout/1.0' };
+      }
+      const res = await fetch(url, fetchOpts);
       const data = await res.json();
-      if (data.status === 200 && data.result) {
-        flyTo(data.result.latitude, data.result.longitude, 14);
+      const result = countryConfig.parseGeocode(data);
+      if (result) {
+        flyTo(result.lat, result.lng, 14);
       } else {
-        setError('Postcode not found. Try another UK postcode.');
+        const errorKey = `postcodeNotFound_${country}`;
+        setError(t[errorKey] || t.postcodeNotFound_UK);
       }
     } catch {
-      setError('Failed to lookup postcode. Check your connection.');
+      setError(t.postcodeFailed);
     }
-  }, [postcode, flyTo]);
+  }, [postcode, flyTo, countryConfig, country, t]);
 
   const searchSites = useCallback(async () => {
     setLoading(true);
     setError(null);
     setResults([]);
-    setSearchProgress('Starting search...');
+    setSearchProgress(t.startingSearch);
     setSidebarView('results');
 
     const { lat, lng } = searchCenter;
     const radius = searchRadius;
 
     const allResults = [];
-    const typesToSearch = SITE_TYPES.filter((t) => selectedTypes.includes(t.id));
+    const typesToSearch = SITE_TYPES.filter((st) => selectedTypes.includes(st.id));
 
     for (let i = 0; i < typesToSearch.length; i++) {
       const siteType = typesToSearch[i];
-      setSearchProgress(`Searching ${siteType.label} (${i + 1}/${typesToSearch.length})...`);
+      const label = getSiteTypeLabel(siteType, t);
+      setSearchProgress(`${t.searching} ${label} (${i + 1}/${typesToSearch.length})...`);
 
       try {
         const query = siteType.query(lat, lng, radius);
@@ -474,7 +958,7 @@ export default function PadelScout() {
         });
 
         if (!response.ok) {
-          console.warn(`Failed to fetch ${siteType.label}: ${response.status}`);
+          console.warn(`Failed to fetch ${label}: ${response.status}`);
           continue;
         }
 
@@ -498,10 +982,11 @@ export default function PadelScout() {
             score,
             reasons,
             approxArea,
+            country: country,
             name:
               el.tags?.name ||
               el.tags?.['disused:name'] ||
-              `${siteType.label} near ${elLat.toFixed(4)}, ${elLng.toFixed(4)}`,
+              `${label} near ${elLat.toFixed(4)}, ${elLng.toFixed(4)}`,
           });
         });
 
@@ -510,14 +995,14 @@ export default function PadelScout() {
           await new Promise((r) => setTimeout(r, 1500));
         }
       } catch (err) {
-        console.warn(`Error searching ${siteType.label}:`, err);
+        console.warn(`Error searching ${label}:`, err);
       }
     }
 
     setResults(allResults);
     setSearchProgress('');
     setLoading(false);
-  }, [searchCenter, searchRadius, selectedTypes]);
+  }, [searchCenter, searchRadius, selectedTypes, t, country]);
 
   const saveSite = useCallback(
     (site) => {
@@ -528,12 +1013,13 @@ export default function PadelScout() {
         notes: '',
         savedAt: new Date().toISOString(),
         siteTypeId: site.siteType.id,
-        siteTypeLabel: site.siteType.label,
+        siteTypeLabelKey: site.siteType.labelKey,
         siteTypeEmoji: site.siteType.emoji,
+        country: site.country || country,
       };
       setSavedSites((prev) => [...prev, newSite]);
     },
-    [savedSites]
+    [savedSites, country]
   );
 
   const updateSiteStatus = useCallback((siteId, status) => {
@@ -551,9 +1037,9 @@ export default function PadelScout() {
   const filteredResults = useMemo(() => {
     let filtered = results.filter((r) => r.score >= minScore && !dismissedSites.has(r.id));
     if (sortBy === 'score') filtered.sort((a, b) => b.score - a.score);
-    else if (sortBy === 'type') filtered.sort((a, b) => a.siteType.label.localeCompare(b.siteType.label));
+    else if (sortBy === 'type') filtered.sort((a, b) => getSiteTypeLabel(a.siteType, t).localeCompare(getSiteTypeLabel(b.siteType, t)));
     return filtered;
-  }, [results, sortBy, minScore, dismissedSites]);
+  }, [results, sortBy, minScore, dismissedSites, t]);
 
   const typeCounts = useMemo(() => {
     const counts = {};
@@ -565,31 +1051,35 @@ export default function PadelScout() {
 
   const exportPipelineCSV = useCallback(() => {
     if (savedSites.length === 0) return;
-    const headers = ['Name','Type','Score','Status','Lat','Lng','Area (m²)','Notes','Satellite','Street View','OSM','Land Registry','Saved At'];
-    const rows = savedSites.map((s) => [
-      s.name,
-      s.siteTypeLabel || '',
-      s.score,
-      s.status,
-      s.lat,
-      s.lng,
-      s.approxArea || '',
-      (s.notes || '').replace(/[\n\r,]/g, ' '),
-      `https://www.google.com/maps/@${s.lat},${s.lng},200m/data=!3m1!1e3`,
-      `https://www.google.com/maps?layer=c&cbll=${s.lat},${s.lng}`,
-      `https://www.openstreetmap.org/${s.osmType}/${s.osmId}`,
-      `https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${s.lat}&lng=${s.lng}`,
-      s.savedAt || '',
-    ]);
+    const headers = ['Name','Type','Country','Score','Status','Lat','Lng','Area (m²)','Notes','Satellite','Street View','OSM','Land Registry','Saved At'];
+    const rows = savedSites.map((s) => {
+      const siteCountryCfg = COUNTRY_CONFIGS[s.country || country] || countryConfig;
+      return [
+        s.name,
+        t[s.siteTypeLabelKey] || s.siteTypeLabelKey || s.siteTypeLabel || '',
+        s.country || country,
+        s.score,
+        s.status,
+        s.lat,
+        s.lng,
+        s.approxArea || '',
+        (s.notes || '').replace(/[\n\r,]/g, ' '),
+        `https://www.google.com/maps/@${s.lat},${s.lng},200m/data=!3m1!1e3`,
+        `https://www.google.com/maps?layer=c&cbll=${s.lat},${s.lng}`,
+        `https://www.openstreetmap.org/${s.osmType}/${s.osmId}`,
+        siteCountryCfg.landRegistryUrl(s.lat, s.lng),
+        s.savedAt || '',
+      ];
+    });
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `padel-pipeline-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `padel-pipeline-${country}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [savedSites]);
+  }, [savedSites, country, countryConfig, t]);
 
   const pipelineGroups = useMemo(() => {
     const groups = {};
@@ -638,19 +1128,68 @@ export default function PadelScout() {
         }}
       >
         {/* Header */}
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: 'white' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>🏸 Padel Scout UK</h1>
-            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500' }}>OFF-MARKET LAND TOOL</span>
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', background: 'white' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h1 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>{countryConfig.flag} {t.appTitle}</h1>
+            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500' }}>{t.appSubtitle}</span>
+          </div>
+          {/* Country & Language selectors */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>{t.selectCountry}:</span>
+              <div style={{ display: 'flex', gap: '3px' }}>
+                {Object.values(COUNTRY_CONFIGS).map((cfg) => (
+                  <button
+                    key={cfg.id}
+                    onClick={() => switchCountry(cfg.id)}
+                    style={{
+                      ...btnStyle,
+                      padding: '3px 8px',
+                      fontSize: '12px',
+                      background: country === cfg.id ? '#3b82f6' : '#e2e8f0',
+                      color: country === cfg.id ? 'white' : '#475569',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {cfg.flag} {cfg.id}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>{t.language}:</span>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {[
+                  { code: 'en', label: 'EN' },
+                  { code: 'de', label: 'DE' },
+                  { code: 'hu', label: 'HU' },
+                ].map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setLanguage(lang.code)}
+                    style={{
+                      ...btnStyle,
+                      padding: '3px 6px',
+                      fontSize: '10px',
+                      background: language === lang.code ? '#1e293b' : '#f1f5f9',
+                      color: language === lang.code ? 'white' : '#475569',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: 'white' }}>
           {[
-            { id: 'search', label: '🔍 Search', count: null },
-            { id: 'pipeline', label: '📊 Pipeline', count: savedSites.length },
-            { id: 'resources', label: '📚 Info', count: null },
+            { id: 'search', label: t.searchTab, count: null },
+            { id: 'pipeline', label: t.pipelineTab, count: savedSites.length },
+            { id: 'resources', label: t.resourcesTab, count: null },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -680,12 +1219,12 @@ export default function PadelScout() {
               {/* Postcode search */}
               <div style={cardStyle}>
                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Search any UK location
+                  {t.searchLocation}
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
                     type="text"
-                    placeholder="Enter UK postcode (e.g. GU1 4QA)"
+                    placeholder={t[`enterPostcode_${country}`] || t.enterPostcode_UK}
                     value={postcode}
                     onChange={(e) => setPostcode(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && lookupPostcode()}
@@ -703,21 +1242,21 @@ export default function PadelScout() {
                     onClick={lookupPostcode}
                     style={{ ...btnStyle, background: '#3b82f6', color: 'white', padding: '8px 14px', fontSize: '13px' }}
                   >
-                    Go
+                    {t.go}
                   </button>
                 </div>
                 <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
-                  Or click anywhere on the map to set search centre
+                  {t.clickMapHint}
                 </div>
               </div>
 
               {/* Quick locations */}
               <div style={cardStyle}>
                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Quick jump
+                  {t.quickJump}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {QUICK_LOCATIONS.map((loc) => (
+                  {quickLocations.map((loc) => (
                     <button
                       key={loc.name}
                       onClick={() => flyTo(loc.lat, loc.lng, 14)}
@@ -741,7 +1280,7 @@ export default function PadelScout() {
               <div style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Search radius
+                    {t.searchRadius}
                   </span>
                   <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
                     {(searchRadius / 1000).toFixed(1)} km
@@ -764,7 +1303,7 @@ export default function PadelScout() {
               {/* Site types */}
               <div style={cardStyle}>
                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Site types to search
+                  {t.siteTypes}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {SITE_TYPES.map((type) => (
@@ -786,13 +1325,13 @@ export default function PadelScout() {
                         checked={selectedTypes.includes(type.id)}
                         onChange={() =>
                           setSelectedTypes((prev) =>
-                            prev.includes(type.id) ? prev.filter((t) => t !== type.id) : [...prev, type.id]
+                            prev.includes(type.id) ? prev.filter((v) => v !== type.id) : [...prev, type.id]
                           )
                         }
                         style={{ accentColor: '#3b82f6' }}
                       />
                       <span>{type.emoji}</span>
-                      <span style={{ flex: 1 }}>{type.label}</span>
+                      <span style={{ flex: 1 }}>{getSiteTypeLabel(type, t)}</span>
                       <span style={{ fontSize: '10px', color: '#94a3b8' }}>base: {type.baseScore}</span>
                     </label>
                   ))}
@@ -815,12 +1354,12 @@ export default function PadelScout() {
                   borderRadius: '8px',
                 }}
               >
-                {loading ? `⏳ ${searchProgress}` : `🔍 Search this area (${(searchRadius / 1000).toFixed(1)}km)`}
+                {loading ? `⏳ ${searchProgress}` : `🔍 ${t.searchArea} (${(searchRadius / 1000).toFixed(1)}km)`}
               </button>
 
               {/* Coordinates display */}
               <div style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8', marginBottom: '8px' }}>
-                Centre: {searchCenter.lat.toFixed(5)}, {searchCenter.lng.toFixed(5)}
+                {t.centre}: {searchCenter.lat.toFixed(5)}, {searchCenter.lng.toFixed(5)}
               </div>
 
               {error && (
@@ -836,22 +1375,22 @@ export default function PadelScout() {
                     <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
                       <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>
-                        {filteredResults.length} sites found
+                        {filteredResults.length} {t.sitesFound}
                       </span>
                       {dismissedSites.size > 0 && (
                         <button
                           onClick={() => setDismissedSites(new Set())}
                           style={{ ...btnStyle, background: '#fef3c7', color: '#92400e', fontSize: '10px', padding: '2px 8px' }}
                         >
-                          Show {dismissedSites.size} dismissed
+                          {t.showDismissed} ({dismissedSites.size})
                         </button>
                       )}
                     </div>
                     {Object.keys(typeCounts).length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
-                        {SITE_TYPES.filter(t => typeCounts[t.id]).map(t => (
-                          <span key={t.id} style={{ fontSize: '10px', background: '#f1f5f9', padding: '1px 6px', borderRadius: '8px', color: '#475569' }}>
-                            {t.emoji} {typeCounts[t.id]}
+                        {SITE_TYPES.filter(st => typeCounts[st.id]).map(st => (
+                          <span key={st.id} style={{ fontSize: '10px', background: '#f1f5f9', padding: '1px 6px', borderRadius: '8px', color: '#475569' }}>
+                            {st.emoji} {typeCounts[st.id]}
                           </span>
                         ))}
                       </div>
@@ -863,15 +1402,15 @@ export default function PadelScout() {
                           onChange={(e) => setSortBy(e.target.value)}
                           style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '11px', fontFamily: font }}
                         >
-                          <option value="score">By Score</option>
-                          <option value="type">By Type</option>
+                          <option value="score">{t.byScore}</option>
+                          <option value="type">{t.byType}</option>
                         </select>
                         <select
                           value={minScore}
                           onChange={(e) => setMinScore(parseInt(e.target.value))}
                           style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '11px', fontFamily: font }}
                         >
-                          <option value={0}>All</option>
+                          <option value={0}>{t.all}</option>
                           <option value={40}>40+</option>
                           <option value={60}>60+</option>
                           <option value={80}>80+</option>
@@ -911,7 +1450,7 @@ export default function PadelScout() {
                               }}>{site.score}</span>
                             </div>
                             <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px' }}>
-                              {site.siteType.label} &middot; {site.lat.toFixed(4)}, {site.lng.toFixed(4)}
+                              {getSiteTypeLabel(site.siteType, t)} &middot; {site.lat.toFixed(4)}, {site.lng.toFixed(4)}
                               {site.approxArea ? ` · ~${site.approxArea.toLocaleString()}m²` : ''}
                             </div>
                             {site.reasons && site.reasons.length > 0 && (
@@ -923,7 +1462,7 @@ export default function PadelScout() {
                               <a href={`https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📡 Sat</a>
                               <a href={`https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>🚶 SV</a>
                               <a href={`https://www.openstreetmap.org/${site.osmType}/${site.osmId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>🗺️ OSM</a>
-                              <a href={`https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${site.lat}&lng=${site.lng}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📋 LR</a>
+                              <a href={(COUNTRY_CONFIGS[site.country || country] || countryConfig).landRegistryUrl(site.lat, site.lng)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📋 LR</a>
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flexShrink: 0, marginLeft: '6px' }}>
@@ -969,7 +1508,7 @@ export default function PadelScout() {
               {/* Pipeline summary */}
               <div style={cardStyle}>
                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Pipeline funnel
+                  {t.pipelineFunnel}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {STATUSES.map((status) => (
@@ -986,7 +1525,7 @@ export default function PadelScout() {
                       <span style={{ fontWeight: '700', color: STATUS_COLORS[status] }}>
                         {pipelineGroups[status].length}
                       </span>{' '}
-                      <span style={{ color: '#64748b' }}>{status}</span>
+                      <span style={{ color: '#64748b' }}>{getStatusLabel(status, t)}</span>
                     </div>
                   ))}
                 </div>
@@ -997,13 +1536,13 @@ export default function PadelScout() {
                   onClick={exportPipelineCSV}
                   style={{ ...btnStyle, width: '100%', background: '#1e293b', color: 'white', padding: '8px', fontSize: '12px', fontWeight: '600', marginBottom: '8px', borderRadius: '6px' }}
                 >
-                  📥 Export Pipeline to CSV
+                  {t.exportCSV}
                 </button>
               )}
 
               {savedSites.length === 0 && (
                 <div style={{ ...cardStyle, textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                  No saved sites yet. Search and save sites to build your pipeline.
+                  {t.noSavedSites}
                 </div>
               )}
 
@@ -1015,9 +1554,11 @@ export default function PadelScout() {
                         fontSize: '11px', fontWeight: '700', color: STATUS_COLORS[status],
                         margin: '12px 0 6px 0', textTransform: 'uppercase', letterSpacing: '0.05em',
                       }}>
-                        {status} ({pipelineGroups[status].length})
+                        {getStatusLabel(status, t)} ({pipelineGroups[status].length})
                       </div>
-                      {pipelineGroups[status].map((site) => (
+                      {pipelineGroups[status].map((site) => {
+                        const siteCountryCfg = COUNTRY_CONFIGS[site.country || country] || countryConfig;
+                        return (
                         <div key={site.id} style={cardStyle}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div
@@ -1036,13 +1577,13 @@ export default function PadelScout() {
                                 }}>{site.score}</span>
                               </div>
                               <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '3px' }}>
-                                {site.siteTypeLabel} &middot; {site.lat.toFixed(4)}, {site.lng.toFixed(4)}
+                                {t[site.siteTypeLabelKey] || site.siteTypeLabelKey || site.siteTypeLabel || ''} &middot; {site.lat.toFixed(4)}, {site.lng.toFixed(4)}
                               </div>
                               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 <a href={`https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📡 Sat</a>
                                 <a href={`https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>🚶 SV</a>
                                 <a href={`https://www.openstreetmap.org/${site.osmType}/${site.osmId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>🗺️ OSM</a>
-                                <a href={`https://eservices.landregistry.gov.uk/wps/portal/Property_Search?lat=${site.lat}&lng=${site.lng}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📋 LR</a>
+                                <a href={siteCountryCfg.landRegistryUrl(site.lat, site.lng)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', color: '#3b82f6', textDecoration: 'none' }}>📋 LR</a>
                               </div>
                             </div>
                             <button
@@ -1056,23 +1597,23 @@ export default function PadelScout() {
                           {expandedSite === site.id && (
                             <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
                               <div style={{ marginBottom: '6px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '3px' }}>Status</label>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '3px' }}>{t.status}</label>
                                 <select
                                   value={site.status}
                                   onChange={(e) => updateSiteStatus(site.id, e.target.value)}
                                   style={{ padding: '5px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '12px', width: '100%', fontFamily: font }}
                                 >
                                   {STATUSES.map((s) => (
-                                    <option key={s} value={s}>{s}</option>
+                                    <option key={s} value={s}>{getStatusLabel(s, t)}</option>
                                   ))}
                                 </select>
                               </div>
                               <div style={{ marginBottom: '6px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '3px' }}>Notes</label>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '3px' }}>{t.notes}</label>
                                 <textarea
                                   value={site.notes}
                                   onChange={(e) => updateSiteNotes(site.id, e.target.value)}
-                                  placeholder="Owner name, phone, observations, next actions..."
+                                  placeholder={t.notesPlaceholder}
                                   style={{
                                     width: '100%', minHeight: '60px', padding: '6px', borderRadius: '4px',
                                     border: '1px solid #d1d5db', fontSize: '12px', fontFamily: font, resize: 'vertical', boxSizing: 'border-box',
@@ -1083,12 +1624,13 @@ export default function PadelScout() {
                                 onClick={() => removeSite(site.id)}
                                 style={{ ...btnStyle, background: '#fee2e2', color: '#dc2626', fontSize: '11px' }}
                               >
-                                🗑️ Remove
+                                {t.remove}
                               </button>
                             </div>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )
               )}
@@ -1097,69 +1639,69 @@ export default function PadelScout() {
 
           {activeTab === 'resources' && (
             <>
-              <div style={cardStyle}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Council brownfield registers
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <a href="https://www.wokingham.gov.uk/planning-policy/planning-policy-information/brownfield-land-register" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Wokingham Brownfield Register</a>
-                  <a href="https://www.richmond.gov.uk/services/planning/planning_policy/brownfield_land_register" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Richmond Brownfield Register</a>
-                  <a href="https://www.guildford.gov.uk/brownfieldregister" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Guildford Brownfield Register</a>
-                  <a href="https://www.bracknell-forest.gov.uk/planning-and-building-control/planning/brownfield-land-register" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Bracknell Forest Brownfield Register</a>
-                  <a href="https://www.woking.gov.uk/planning-and-building-control/planning-policy/brownfield-register" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Woking Brownfield Register</a>
-                </div>
-              </div>
+              {(() => {
+                const res = countryConfig.resources(t);
+                return (
+                  <>
+                    <div style={cardStyle}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t.brownfieldRegisters}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {res.brownfield.map((r, i) => (
+                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>{r.label}</a>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={cardStyle}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t.playingPitchStrategies}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {res.pitchStrategies.map((r, i) => (
+                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>{r.label}</a>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={cardStyle}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t.planningPortals}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {res.planningPortals.map((r, i) => (
+                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>{r.label}</a>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={cardStyle}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t.keyTools}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {res.tools.map((r, i) => (
+                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>{r.label}</a>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               <div style={cardStyle}>
                 <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Playing pitch strategies
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <a href="https://www.wokingham.gov.uk/planning-policy/planning-policy-information/playing-pitch-strategy" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Wokingham Playing Pitch Strategy</a>
-                  <a href="https://www.richmond.gov.uk/services/leisure_and_culture/sports_and_fitness/playing_pitch_strategy" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Richmond Playing Pitch Strategy</a>
-                  <a href="https://www.guildford.gov.uk/playingpitchstrategy" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Guildford Playing Pitch Strategy</a>
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Planning application portals
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <a href="https://planning.wokingham.gov.uk/FastWeb/welcome.asp" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Wokingham Planning Portal</a>
-                  <a href="https://www2.richmond.gov.uk/PlanData2/Planning_Search.aspx" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Richmond Planning Portal</a>
-                  <a href="https://www.guildford.gov.uk/planning/search" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Guildford Planning Portal</a>
-                  <a href="https://planapp.bracknell-forest.gov.uk/online-applications/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Bracknell Forest Planning Portal</a>
-                  <a href="https://caps.woking.gov.uk/online-applications/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>Woking Planning Portal</a>
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Key tools
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <a href="https://eservices.landregistry.gov.uk/wps/portal/Property_Search" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>🏠 HM Land Registry — Property Search</a>
-                  <a href="https://www.activeplacespower.com/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>📊 Active Places Power — Sport England</a>
-                  <a href="https://www.lta.org.uk/play/ways-to-play/find-a-court/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>🎾 LTA Court Finder</a>
-                  <a href="https://www.google.com/earth/versions/#earth-pro" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>🌍 Google Earth Pro (free)</a>
-                  <a href="https://magic.defra.gov.uk/MagicMap.aspx" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>🗺️ MAGIC Map — Environmental designations</a>
-                  <a href="https://www.tax.service.gov.uk/check-council-tax-band/search" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none' }}>💷 Council Tax Band Lookup</a>
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Padel court quick reference
+                  {t.padelReference}
                 </div>
                 <div style={{ fontSize: '12px', color: '#374151', lineHeight: '1.5' }}>
-                  <div><strong>Single court:</strong> 20m × 10m (200m²) + run-off = ~300m²</div>
-                  <div><strong>3 courts (ideal):</strong> 60m × 10m or 40m × 20m = 600–800m²</div>
-                  <div><strong>Sweet spot:</strong> 600–2,500m² sites</div>
-                  <div><strong>Surface:</strong> Asphalt/concrete base preferred</div>
-                  <div><strong>Height:</strong> Min 8m clearance</div>
-                  <div><strong>Access:</strong> Vehicle access + customer parking</div>
-                  <div><strong>Planning:</strong> Usually D2 (assembly & leisure) use class</div>
+                  <div><strong>{t.singleCourt}</strong> {t.singleCourtDesc}</div>
+                  <div><strong>{t.threeCourts}</strong> {t.threeCourtsDesc}</div>
+                  <div><strong>{t.sweetSpot}</strong> {t.sweetSpotDesc}</div>
+                  <div><strong>{t.surface}</strong> {t.surfaceDesc}</div>
+                  <div><strong>{t.height}</strong> {t.heightDesc}</div>
+                  <div><strong>{t.access}</strong> {t.accessDesc}</div>
+                  <div><strong>{t.planning}</strong> {t[`planningDesc_${country}`] || t.planningDesc_UK}</div>
                 </div>
               </div>
             </>
@@ -1211,7 +1753,7 @@ export default function PadelScout() {
         fontSize: '10px',
         color: '#475569',
       }}>
-        <div style={{ fontWeight: '600', marginBottom: '4px' }}>Score</div>
+        <div style={{ fontWeight: '600', marginBottom: '4px' }}>{t.scoreLegend}</div>
         <div style={{ display: 'flex', gap: '8px' }}>
           {[
             { label: '80+', color: '#16a34a' },
