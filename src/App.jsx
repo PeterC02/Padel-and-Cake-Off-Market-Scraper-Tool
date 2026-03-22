@@ -37,6 +37,10 @@ const TRANSLATIONS = {
     saveToPipeline: '💾 Save to Pipeline',
     searchCentre: 'Search Centre',
     radius: 'Radius',
+    bookingPlatforms: 'Booking Platforms',
+    showExistingPadelClubs: 'Show existing Padel clubs',
+    showingExistingClubs: 'Displaying existing padel facilities for competitive analysis',
+    hidingExistingClubs: 'Hidden - only showing potential new locations',
     postcodeNotFound_UK: 'Postcode not found. Try another UK postcode.',
     postcodeNotFound_DE: 'Postal code not found. Try another German postal code.',
     postcodeNotFound_HU: 'Postal code not found. Try another Hungarian postal code.',
@@ -61,6 +65,7 @@ const TRANSLATIONS = {
     multiSportCourts: 'Multi-Sport Courts (MUGAs)',
     churches: 'Churches (car parks/grounds)',
     schools: 'Schools (grounds/courts)',
+    padelClubs: '🏸 Existing Padel Clubs',
     // Resources
     brownfieldRegisters: 'Brownfield / development registers',
     playingPitchStrategies: 'Playing pitch strategies',
@@ -127,6 +132,10 @@ const TRANSLATIONS = {
     saveToPipeline: '💾 In Pipeline speichern',
     searchCentre: 'Suchzentrum',
     radius: 'Radius',
+    bookingPlatforms: 'Buchungsplattformen',
+    showExistingPadelClubs: 'Bestehende Padel-Clubs anzeigen',
+    showingExistingClubs: 'Bestehende Padel-Anlagen für Wettbewerbsanalyse werden angezeigt',
+    hidingExistingClubs: 'Ausgeblendet - nur potenzielle neue Standorte werden gezeigt',
     postcodeNotFound_UK: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere UK-PLZ.',
     postcodeNotFound_DE: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere deutsche PLZ.',
     postcodeNotFound_HU: 'Postleitzahl nicht gefunden. Versuchen Sie eine andere ungarische PLZ.',
@@ -149,7 +158,8 @@ const TRANSLATIONS = {
     disusedLand: 'Stillgelegte/Aufgegebene Flächen',
     multiSportCourts: 'Multisportplätze (MUGAs)',
     churches: 'Kirchen (Parkplätze/Grundstücke)',
-    schools: 'Schulen (Gelände/Plätze)',
+    schools: 'Schulen (Höfe/Sportplätze)',
+    padelClubs: '🏸 Bestehende Padel-Clubs',
     brownfieldRegisters: 'Brachflächen- / Entwicklungsregister',
     playingPitchStrategies: 'Sportplatzstrategien',
     planningPortals: 'Baugenehmigungsportale',
@@ -214,6 +224,10 @@ const TRANSLATIONS = {
     saveToPipeline: '💾 Mentés a pipeline-ba',
     searchCentre: 'Keresési központ',
     radius: 'Sugár',
+    bookingPlatforms: 'Foglalási platformok',
+    showExistingPadelClubs: 'Létező Padel klubok mutatása',
+    showingExistingClubs: 'Létező padel létesítmények megjelenítése versenyelemzéshez',
+    hidingExistingClubs: 'Rejtve - csak potenciális új helyszínek láthatók',
     postcodeNotFound_UK: 'Irányítószám nem található. Próbáljon másik UK irányítószámot.',
     postcodeNotFound_DE: 'Irányítószám nem található. Próbáljon másik német irányítószámot.',
     postcodeNotFound_HU: 'Irányítószám nem található. Próbáljon másik magyar irányítószámot.',
@@ -237,6 +251,7 @@ const TRANSLATIONS = {
     multiSportCourts: 'Multisport pályák (MUGA-k)',
     churches: 'Templomok (parkolók/telkek)',
     schools: 'Iskolák (udvarok/pályák)',
+    padelClubs: '🏸 Létező Padel klubok',
     brownfieldRegisters: 'Barnamezős / fejlesztési nyilvántartások',
     playingPitchStrategies: 'Sportpálya stratégiák',
     planningPortals: 'Építési engedélyezési portálok',
@@ -494,6 +509,23 @@ const SITE_TYPES = [
       `[out:json][timeout:30];(way["amenity"="school"](around:${r},${lat},${lng}););out center body;`,
     baseScore: 55,
   },
+  {
+    id: 'padel_club',
+    labelKey: 'padelClubs',
+    emoji: '🏸',
+    query: (lat, lng, r) =>
+      `[out:json][timeout:30];
+      (
+        way["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
+        way["leisure"="sports_centre"]["sport"="padel"](around:${r},${lat},${lng});
+        way["sport"="padel"](around:${r},${lat},${lng});
+        relation["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
+        node["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
+        node["sport"="padel"](around:${r},${lat},${lng});
+      );
+      out center body;`,
+    baseScore: 95,
+  },
 ];
 
 // Status keys for translation lookup
@@ -550,6 +582,76 @@ function scoreSite(element, siteType) {
   const reasons = [];
   let approxArea = null;
 
+  // Specialized scoring for existing padel clubs
+  if (siteType.id === 'padel_club') {
+    // Extract court count from name or tags
+    const name = (tags.name || '').toLowerCase();
+    let courtCount = 1;
+    
+    // Try to extract court count from name
+    const courtMatch = name.match(/(\d+)\s*(?:court|pista|platz|pálya|padel)/i);
+    if (courtMatch) {
+      courtCount = parseInt(courtMatch[1]);
+    }
+    
+    // Bonus for multiple courts
+    if (courtCount >= 3) {
+      score += 10;
+      reasons.push(`+10 ${courtCount}+ courts`);
+    } else if (courtCount >= 2) {
+      score += 5;
+      reasons.push(`+5 ${courtCount} courts`);
+    }
+    
+    // Facility quality bonuses
+    if (tags.leisure === 'sports_centre') {
+      score += 8;
+      reasons.push('+8 sports centre');
+    }
+    
+    // Surface quality (padel typically uses artificial turf)
+    const surface = (tags.surface || '').toLowerCase();
+    if (surface.includes('artificial') || surface.includes('turf') || surface.includes('carpet')) {
+      score += 5;
+      reasons.push('+5 padel surface');
+    } else if (surface.includes('asphalt') || surface.includes('concrete')) {
+      score += 3;
+      reasons.push('+3 hard surface');
+    }
+    
+    // Lighting is crucial for padel
+    if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
+      score += 8;
+      reasons.push('+8 floodlit');
+    }
+    
+    // Access and amenities
+    if (tags.access === 'customers' || tags.access === 'public') {
+      score += 5;
+      reasons.push('+5 public access');
+    }
+    
+    // Additional amenities
+    if (tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.shop === 'sports') {
+      score += 3;
+      reasons.push('+3 amenities');
+    }
+    
+    // Parking availability
+    if (tags.parking || tags.amenity === 'parking') {
+      score += 3;
+      reasons.push('+3 parking');
+    }
+    
+    // Calculate approximate area based on court count
+    if (courtCount > 0) {
+      approxArea = courtCount * 800; // ~800m² per padel court including run-off
+    }
+    
+    return { score: Math.max(0, Math.min(100, score)), reasons, approxArea };
+  }
+  
+  // Original scoring for other site types
   // Surface scoring
   const surface = (tags.surface || '').toLowerCase();
   if (surface.includes('asphalt') || surface.includes('concrete') || surface.includes('tarmac')) {
@@ -677,7 +779,7 @@ export default function PadelScout() {
   const [country, setCountry] = useState('UK');
   const [language, setLanguage] = useState('en');
   const [activeTab, setActiveTab] = useState('search');
-  const [selectedTypes, setSelectedTypes] = useState(['tennis', 'car_park', 'disused', 'muga']);
+  const [selectedTypes, setSelectedTypes] = useState(['tennis', 'car_park', 'disused', 'muga', 'padel_club']);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -693,6 +795,7 @@ export default function PadelScout() {
   const [highlightedSite, setHighlightedSite] = useState(null);
   const [sidebarView, setSidebarView] = useState('controls');
   const [dismissedSites, setDismissedSites] = useState(new Set());
+  const [showExistingPadelClubs, setShowExistingPadelClubs] = useState(true);
 
   // Translation and country config helpers
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
@@ -829,7 +932,53 @@ export default function PadelScout() {
         icon: createMarkerIcon(site.score, site.siteType.emoji),
       });
 
-      const popupHtml = `
+      // Enhanced popup for padel clubs
+      const popupHtml = site.siteType.id === 'padel_club' ? `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:260px;max-width:320px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:18px;">${site.siteType.emoji}</span>
+            <strong style="font-size:13px;flex:1;">${site.name}</strong>
+            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}</span>
+          </div>
+          <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
+          ${site.approxArea ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;">📐 ~${site.approxArea.toLocaleString()}m² (${Math.round(site.approxArea/800)} courts est.)</div>` : ''}
+          ${site.reasons && site.reasons.length > 0 ? `<div style="font-size:9px;color:#94a3b8;margin-bottom:6px;">${site.reasons.join(' · ')}</div>` : ''}
+          
+          <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">${t.bookingPlatforms}:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            ${(() => {
+              const clubName = encodeURIComponent(site.name);
+              const country = site.country || country;
+              const bookingLinks = [];
+              
+              if (country === 'UK') {
+                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
+                bookingLinks.push(`<a href="https://matchi.net/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🎾 Matchi</a>`);
+                bookingLinks.push(`<a href="https://padelcb.com/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🏸 PadelCB</a>`);
+              } else if (country === 'DE') {
+                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
+                bookingLinks.push(`<a href="https://padel-now.de/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇩🇪 Padel-Now</a>`);
+              } else if (country === 'HU') {
+                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
+                bookingLinks.push(`<a href="https://padel.hu/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇭🇺 Padel.hu</a>`);
+              }
+              
+              return bookingLinks.join('');
+            })()}
+          </div>
+          
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.satellite}</a>
+            <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.streetView}</a>
+            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.osm}</a>
+            <a href="${siteCountryCfg.landRegistryUrl(site.lat, site.lng)}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.landRegistry}</a>
+          </div>
+          <button onclick="window.__padelSaveSite__('${site.id}')" style="
+            width:100%;padding:6px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;
+            background:${isSaved ? '#d1d5db' : '#22c55e'};color:white;
+          " ${isSaved ? 'disabled' : ''}>${isSaved ? t.savedToPipeline : t.saveToPipeline}</button>
+        </div>
+      ` : `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:240px;max-width:300px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
             <span style="font-size:18px;">${site.siteType.emoji}</span>
@@ -942,7 +1091,10 @@ export default function PadelScout() {
     const radius = searchRadius;
 
     const allResults = [];
-    const typesToSearch = SITE_TYPES.filter((st) => selectedTypes.includes(st.id));
+    const typesToSearch = SITE_TYPES.filter((st) => 
+      selectedTypes.includes(st.id) && 
+      (st.id !== 'padel_club' || showExistingPadelClubs)
+    );
 
     for (let i = 0; i < typesToSearch.length; i++) {
       const siteType = typesToSearch[i];
@@ -1335,6 +1487,32 @@ export default function PadelScout() {
                       <span style={{ fontSize: '10px', color: '#94a3b8' }}>base: {type.baseScore}</span>
                     </label>
                   ))}
+                </div>
+              </div>
+
+              {/* Existing Padel Clubs Toggle */}
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#475569' }}>
+                    🏸 {t.showExistingPadelClubs}
+                  </div>
+                  <button
+                    onClick={() => setShowExistingPadelClubs(!showExistingPadelClubs)}
+                    style={{
+                      ...btnStyle,
+                      padding: '4px 12px',
+                      fontSize: '11px',
+                      background: showExistingPadelClubs ? '#22c55e' : '#e5e7eb',
+                      color: showExistingPadelClubs ? 'white' : '#6b7280',
+                      borderRadius: '12px',
+                      fontWeight: '500',
+                    }}
+                  >
+                    {showExistingPadelClubs ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                  {showExistingPadelClubs ? t.showingExistingClubs : t.hidingExistingClubs}
                 </div>
               </div>
 
