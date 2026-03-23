@@ -55,7 +55,18 @@ const TRANSLATIONS = {
     mayBeSmall: '⚠️ may be small',
     workable: '👍 workable',
     veryLarge: '⚠️ very large',
-    scoreLegend: 'Score',
+    scoreLegend: 'Score Guide',
+    scoreExcellent: 'Excellent — high development potential, prioritise',
+    scoreGood: 'Good — strong candidate, worth investigating',
+    scoreFair: 'Fair — some potential, needs further assessment',
+    scorePoor: 'Low — significant barriers to development',
+    scoreBreakdownTitle: 'How scores are calculated',
+    scoreSize: 'Site size (ideal 600–2500 m²)',
+    scoreSiteType: 'Site type suitability for conversion',
+    scoreSurface: 'Ground surface quality',
+    scoreAccess: 'Public access & parking',
+    scoreInfra: 'Existing lighting & structures',
+    scoreLocation: 'Location & land-use zoning',
     selectCountry: 'Country',
     language: 'Language',
     // Site types
@@ -150,7 +161,18 @@ const TRANSLATIONS = {
     mayBeSmall: '⚠️ möglicherweise zu klein',
     workable: '👍 nutzbar',
     veryLarge: '⚠️ sehr groß',
-    scoreLegend: 'Bewertung',
+    scoreLegend: 'Bewertungsleitfaden',
+    scoreExcellent: 'Ausgezeichnet — hohes Entwicklungspotenzial, priorisieren',
+    scoreGood: 'Gut — starker Kandidat, Untersuchung lohnt sich',
+    scoreFair: 'Mittelmäßig — etwas Potenzial, weitere Bewertung nötig',
+    scorePoor: 'Niedrig — erhebliche Entwicklungshindernisse',
+    scoreBreakdownTitle: 'So werden Bewertungen berechnet',
+    scoreSize: 'Grundstücksgröße (ideal 600–2500 m²)',
+    scoreSiteType: 'Standorteignung zur Umnutzung',
+    scoreSurface: 'Qualität der Oberfläche',
+    scoreAccess: 'Öffentlicher Zugang & Parken',
+    scoreInfra: 'Vorhandene Beleuchtung & Gebäude',
+    scoreLocation: 'Lage & Flächennutzungsplanung',
     selectCountry: 'Land',
     language: 'Sprache',
     tennisCourts: 'Tennisplätze',
@@ -242,7 +264,18 @@ const TRANSLATIONS = {
     mayBeSmall: '⚠️ lehet, hogy kicsi',
     workable: '👍 használható',
     veryLarge: '⚠️ nagyon nagy',
-    scoreLegend: 'Pontszám',
+    scoreLegend: 'Pontozási útmutató',
+    scoreExcellent: 'Kiváló — magas fejlesztési potenciál, priorizálandó',
+    scoreGood: 'Jó — erős jelölt, érdemes megvizsgálni',
+    scoreFair: 'Közepes — van potenciál, további értékelés szükséges',
+    scorePoor: 'Alacsony — jelentős fejlesztési akadályok',
+    scoreBreakdownTitle: 'Hogyan számítjuk a pontszámokat',
+    scoreSize: 'Telekméret (ideális 600–2500 m²)',
+    scoreSiteType: 'Helyszín alkalmassága átalakításra',
+    scoreSurface: 'Felszín minősége',
+    scoreAccess: 'Nyilvános hozzáférés & parkolás',
+    scoreInfra: 'Meglévő világítás & épületek',
+    scoreLocation: 'Elhelyezkedés & övezeti besorolás',
     selectCountry: 'Ország',
     language: 'Nyelv',
     tennisCourts: 'Teniszpályák',
@@ -513,17 +546,11 @@ const SITE_TYPES = [
     id: 'padel_club',
     labelKey: 'padelClubs',
     emoji: '🏸',
-    query: (lat, lng, r) =>
-      `[out:json][timeout:30];
-      (
-        way["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
-        way["leisure"="sports_centre"]["sport"="padel"](around:${r},${lat},${lng});
-        way["sport"="padel"](around:${r},${lat},${lng});
-        relation["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
-        node["leisure"="pitch"]["sport"="padel"](around:${r},${lat},${lng});
-        node["sport"="padel"](around:${r},${lat},${lng});
-      );
-      out center body;`,
+    // Padel clubs are sparse — always search a wide area (min 15km)
+    query: (lat, lng, r) => {
+      const padelRadius = Math.max(r, 15000);
+      return `[out:json][timeout:30];(way["sport"="padel"](around:${padelRadius},${lat},${lng});node["sport"="padel"](around:${padelRadius},${lat},${lng});relation["sport"="padel"](around:${padelRadius},${lat},${lng}););out center body;`;
+    },
     baseScore: 0,
   },
 ];
@@ -584,57 +611,52 @@ function scoreSite(element, siteType) {
 
   // Specialized scoring for existing padel clubs (competitive analysis)
   if (siteType.id === 'padel_club') {
-    // Extract court count from name or tags
-    const name = (tags.name || '').toLowerCase();
-    let courtCount = 1;
+    const courtCount = tags._courtCount || 1;
     
-    // Try to extract court count from name
-    const courtMatch = name.match(/(\d+)\s*(?:court|pista|platz|pálya|padel)/i);
-    if (courtMatch) {
-      courtCount = parseInt(courtMatch[1]);
-    }
-    
-    // Base score for existing clubs (they're proven viable locations)
+    // Base: existing club is a proven viable location
     score = 40;
-    reasons.push('40 Existing club (proven viability)');
+    reasons.push('40 Existing club (proven location)');
     
-    // Multiple courts indicate success
-    if (courtCount >= 4) {
+    // Court count is the strongest signal of demand
+    if (courtCount >= 6) {
+      score += 25;
+      reasons.push(`25 Major facility (${courtCount} courts)`);
+    } else if (courtCount >= 4) {
       score += 20;
-      reasons.push('20 4+ courts (high demand area)');
+      reasons.push(`20 Large club (${courtCount} courts)`);
     } else if (courtCount >= 2) {
-      score += 10;
-      reasons.push('10 Multiple courts');
+      score += 12;
+      reasons.push(`12 Multi-court club (${courtCount} courts)`);
+    } else {
+      score += 5;
+      reasons.push('5 Single court');
     }
     
-    // Facility quality indicators
+    // Facility quality
     if (tags.leisure === 'sports_centre') {
       score += 8;
       reasons.push('8 Professional sports centre');
     }
     
-    // Lighting extends playing hours (crucial for revenue)
+    // Floodlighting = extended hours = more revenue
     if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
       score += 7;
       reasons.push('7 Floodlit (extended hours)');
     }
     
-    // Parking is essential for customer access
-    if (tags.parking || tags.amenity === 'parking') {
+    // Has a website = established business
+    if (tags.website || tags['contact:website']) {
       score += 5;
-      reasons.push('5 Customer parking');
+      reasons.push('5 Established business (has website)');
     }
     
-    // Additional amenities increase dwell time and revenue
-    if (tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.shop === 'sports') {
+    // Customer access confirmed
+    if (tags.access === 'customers' || tags.access === 'public') {
       score += 3;
-      reasons.push('3 Additional amenities');
+      reasons.push('3 Public/customer access');
     }
     
-    // Calculate approximate area based on court count
-    if (courtCount > 0) {
-      approxArea = courtCount * 800; // ~800m² per padel court including run-off
-    }
+    approxArea = courtCount * 200;
     
     return { score: Math.max(0, Math.min(100, score)), reasons, approxArea };
   }
@@ -837,6 +859,7 @@ export default function PadelScout() {
   const [sidebarView, setSidebarView] = useState('controls');
   const [dismissedSites, setDismissedSites] = useState(new Set());
   const [showExistingPadelClubs, setShowExistingPadelClubs] = useState(true);
+  const [showScoreGuide, setShowScoreGuide] = useState(false);
 
   // Translation and country config helpers
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
@@ -974,45 +997,39 @@ export default function PadelScout() {
       });
 
       // Enhanced popup for padel clubs
+      const siteCountryId = site.country || country;
       const popupHtml = site.siteType.id === 'padel_club' ? `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-width:260px;max-width:320px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
             <span style="font-size:18px;">${site.siteType.emoji}</span>
             <strong style="font-size:13px;flex:1;">${site.name}</strong>
-            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}</span>
+            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}/100</span>
           </div>
-          <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
-          ${site.approxArea ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px;">📐 ~${site.approxArea.toLocaleString()}m² (${Math.round(site.approxArea/800)} courts est.)</div>` : ''}
+          <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
+          ${site.courtCount ? `<div style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:6px;background:#f3e8ff;padding:4px 8px;border-radius:4px;display:inline-block;">🏸 ${site.courtCount} ${site.courtCount === 1 ? 'court' : 'courts'}</div>` : ''}
           ${site.reasons && site.reasons.length > 0 ? `<div style="font-size:9px;color:#94a3b8;margin-bottom:6px;">${site.reasons.join(' · ')}</div>` : ''}
           
           <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">${t.bookingPlatforms}:</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
             ${(() => {
               const clubName = encodeURIComponent(site.name);
-              const country = site.country || country;
               const bookingLinks = [];
-              
-              if (country === 'UK') {
-                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
-                bookingLinks.push(`<a href="https://matchi.net/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🎾 Matchi</a>`);
-                bookingLinks.push(`<a href="https://padelcb.com/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🏸 PadelCB</a>`);
-              } else if (country === 'DE') {
-                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
-                bookingLinks.push(`<a href="https://padel-now.de/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇩🇪 Padel-Now</a>`);
-              } else if (country === 'HU') {
-                bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
-                bookingLinks.push(`<a href="https://padel.hu/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇭🇺 Padel.hu</a>`);
+              bookingLinks.push(`<a href="https://playtomic.io/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">📱 Playtomic</a>`);
+              if (siteCountryId === 'UK') {
+                bookingLinks.push(`<a href="https://matchi.net/search?q=${clubName}" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">� Matchi</a>`);
+              } else if (siteCountryId === 'DE') {
+                bookingLinks.push(`<a href="https://www.padelfy.com/" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇩🇪 Padelfy</a>`);
+              } else if (siteCountryId === 'HU') {
+                bookingLinks.push(`<a href="https://www.magyarpadel.hu/" target="_blank" style="font-size:10px;color:#3b82f6;text-decoration:none;">🇭🇺 Magyar Padel</a>`);
               }
-              
               return bookingLinks.join('');
             })()}
           </div>
           
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <a href="https://www.google.com/maps/search/padel/@${site.lat},${site.lng},15z" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">📍 Google Maps</a>
             <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.satellite}</a>
             <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.streetView}</a>
-            <a href="https://www.openstreetmap.org/${site.osmType}/${site.osmId}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.osm}</a>
-            <a href="${siteCountryCfg.landRegistryUrl(site.lat, site.lng)}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.landRegistry}</a>
           </div>
           <button onclick="window.__padelSaveSite__('${site.id}')" style="
             width:100%;padding:6px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;
@@ -1024,10 +1041,10 @@ export default function PadelScout() {
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
             <span style="font-size:18px;">${site.siteType.emoji}</span>
             <strong style="font-size:13px;flex:1;">${site.name}</strong>
-            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}</span>
+            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}/100</span>
           </div>
           <div style="font-size:11px;color:#6b7280;margin-bottom:6px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
-          ${Object.keys(site.tags).length > 0 ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">${Object.entries(site.tags).filter(([k]) => !k.startsWith('addr:') && !k.startsWith('source') && k !== 'type').slice(0, 5).map(([k, v]) => `${k}=${v}`).join(' &middot; ')}</div>` : ''}
+          ${Object.keys(site.tags).length > 0 ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">${Object.entries(site.tags).filter(([k]) => !k.startsWith('addr:') && !k.startsWith('source') && !k.startsWith('_') && k !== 'type').slice(0, 5).map(([k, v]) => `${k}=${v}`).join(' &middot; ')}</div>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
             <a href="https://www.google.com/maps/@${site.lat},${site.lng},200m/data=!3m1!1e3" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.satellite}</a>
             <a href="https://www.google.com/maps?layer=c&cbll=${site.lat},${site.lng}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none;">${t.streetView}</a>
@@ -1158,30 +1175,94 @@ export default function PadelScout() {
         const data = await response.json();
         const elements = data.elements || [];
 
-        elements.forEach((el) => {
-          const elLat = el.center?.lat || el.lat;
-          const elLng = el.center?.lon || el.lon;
-          if (!elLat || !elLng) return;
+        // For padel clubs, cluster nearby courts into single club entries
+        if (siteType.id === 'padel_club') {
+          // Group courts within 100m of each other as one club
+          const clusters = [];
+          const used = new Set();
 
-          const { score, reasons, approxArea } = scoreSite(el, siteType);
-          allResults.push({
-            id: `${el.type}-${el.id}`,
-            osmId: el.id,
-            osmType: el.type,
-            lat: elLat,
-            lng: elLng,
-            tags: el.tags || {},
-            siteType: siteType,
-            score,
-            reasons,
-            approxArea,
-            country: country,
-            name:
-              el.tags?.name ||
-              el.tags?.['disused:name'] ||
-              `${label} near ${elLat.toFixed(4)}, ${elLng.toFixed(4)}`,
+          elements.forEach((el, idx) => {
+            if (used.has(idx)) return;
+            const elLat = el.center?.lat || el.lat;
+            const elLng = el.center?.lon || el.lon;
+            if (!elLat || !elLng) return;
+
+            const cluster = [el];
+            used.add(idx);
+
+            elements.forEach((other, oidx) => {
+              if (used.has(oidx)) return;
+              const oLat = other.center?.lat || other.lat;
+              const oLng = other.center?.lon || other.lon;
+              if (!oLat || !oLng) return;
+              // ~100m proximity check
+              const dist = Math.sqrt(Math.pow((elLat - oLat) * 111000, 2) + Math.pow((elLng - oLng) * 111000 * Math.cos(elLat * Math.PI / 180), 2));
+              if (dist < 100) {
+                cluster.push(other);
+                used.add(oidx);
+              }
+            });
+
+            clusters.push(cluster);
           });
-        });
+
+          clusters.forEach((cluster) => {
+            const courtCount = cluster.length;
+            // Use the element with the most tags or a name as representative
+            const rep = cluster.find((c) => c.tags?.name) || cluster.reduce((best, c) => (Object.keys(c.tags || {}).length > Object.keys(best.tags || {}).length ? c : best), cluster[0]);
+            const repLat = rep.center?.lat || rep.lat;
+            const repLng = rep.center?.lon || rep.lon;
+            const repTags = { ...(rep.tags || {}), _courtCount: courtCount };
+
+            // Find best name from any court in the cluster
+            const clubName = cluster.map((c) => c.tags?.name).filter(Boolean).find((n) => !/^court\s+\d/i.test(n))
+              || cluster.map((c) => c.tags?.operator).filter(Boolean)[0]
+              || cluster.map((c) => c.tags?.name).filter(Boolean)[0]
+              || `Padel Club (${courtCount} ${courtCount === 1 ? 'court' : 'courts'}) near ${repLat.toFixed(4)}, ${repLng.toFixed(4)}`;
+
+            const { score, reasons, approxArea } = scoreSite({ ...rep, tags: repTags }, siteType);
+            allResults.push({
+              id: `${rep.type}-${rep.id}`,
+              osmId: rep.id,
+              osmType: rep.type,
+              lat: repLat,
+              lng: repLng,
+              tags: repTags,
+              siteType: siteType,
+              score,
+              reasons,
+              approxArea: courtCount * 200,
+              country: country,
+              courtCount,
+              name: clubName,
+            });
+          });
+        } else {
+          elements.forEach((el) => {
+            const elLat = el.center?.lat || el.lat;
+            const elLng = el.center?.lon || el.lon;
+            if (!elLat || !elLng) return;
+
+            const { score, reasons, approxArea } = scoreSite(el, siteType);
+            allResults.push({
+              id: `${el.type}-${el.id}`,
+              osmId: el.id,
+              osmType: el.type,
+              lat: elLat,
+              lng: elLng,
+              tags: el.tags || {},
+              siteType: siteType,
+              score,
+              reasons,
+              approxArea,
+              country: country,
+              name:
+                el.tags?.name ||
+                el.tags?.['disused:name'] ||
+                `${label} near ${elLat.toFixed(4)}, ${elLng.toFixed(4)}`,
+            });
+          });
+        }
 
         // Rate limiting - be nice to Overpass
         if (i < typesToSearch.length - 1) {
@@ -1195,7 +1276,7 @@ export default function PadelScout() {
     setResults(allResults);
     setSearchProgress('');
     setLoading(false);
-  }, [searchCenter, searchRadius, selectedTypes, t, country]);
+  }, [searchCenter, searchRadius, selectedTypes, showExistingPadelClubs, t, country]);
 
   const saveSite = useCallback(
     (site) => {
@@ -1959,33 +2040,67 @@ export default function PadelScout() {
       {/* Map */}
       <div ref={mapRef} style={{ flex: 1, height: '100%' }} />
 
-      {/* Score legend overlay */}
+      {/* Score legend overlay — expandable */}
       <div style={{
         position: 'absolute',
         bottom: '24px',
         right: '12px',
         zIndex: 1000,
         background: 'white',
-        borderRadius: '8px',
-        padding: '8px 12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        fontSize: '10px',
+        borderRadius: '10px',
+        padding: '10px 14px',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+        fontSize: '11px',
         color: '#475569',
+        maxWidth: '320px',
+        cursor: 'default',
       }}>
-        <div style={{ fontWeight: '600', marginBottom: '4px' }}>{t.scoreLegend}</div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div
+          style={{ fontWeight: '700', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+          onClick={() => setShowScoreGuide(!showScoreGuide)}
+        >
+          <span>{t.scoreLegend} (0–100)</span>
+          <span style={{ fontSize: '14px', lineHeight: 1 }}>{showScoreGuide ? '▾' : '▸'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: showScoreGuide ? '8px' : 0 }}>
           {[
-            { label: '80+', color: '#16a34a' },
-            { label: '60+', color: '#d97706' },
-            { label: '40+', color: '#ea580c' },
-            { label: '<40', color: '#dc2626' },
+            { label: '80–100', color: '#16a34a', meaning: t.scoreExcellent },
+            { label: '60–79', color: '#d97706', meaning: t.scoreGood },
+            { label: '40–59', color: '#ea580c', meaning: t.scoreFair },
+            { label: '0–39', color: '#dc2626', meaning: t.scorePoor },
           ].map((s) => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: s.color }} />
-              <span>{s.label}</span>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: '600' }}>{s.label}</span>
             </div>
           ))}
         </div>
+        {showScoreGuide && (
+          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px', fontSize: '10px', lineHeight: '1.6', color: '#374151' }}>
+            <div style={{ marginBottom: '6px' }}>
+              {[
+                { label: '80–100', color: '#16a34a', meaning: t.scoreExcellent },
+                { label: '60–79', color: '#d97706', meaning: t.scoreGood },
+                { label: '40–59', color: '#ea580c', meaning: t.scoreFair },
+                { label: '0–39', color: '#dc2626', meaning: t.scorePoor },
+              ].map((s) => (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                  <span><strong>{s.label}:</strong> {s.meaning}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b' }}>{t.scoreBreakdownTitle}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '1px 8px', fontSize: '10px' }}>
+              <span style={{ fontWeight: '600' }}>40 pts</span><span>{t.scoreSize}</span>
+              <span style={{ fontWeight: '600' }}>25 pts</span><span>{t.scoreSiteType}</span>
+              <span style={{ fontWeight: '600' }}>15 pts</span><span>{t.scoreSurface}</span>
+              <span style={{ fontWeight: '600' }}>15 pts</span><span>{t.scoreAccess}</span>
+              <span style={{ fontWeight: '600' }}>10 pts</span><span>{t.scoreInfra}</span>
+              <span style={{ fontWeight: '600' }}>10 pts</span><span>{t.scoreLocation}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
