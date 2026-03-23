@@ -56,17 +56,17 @@ const TRANSLATIONS = {
     workable: '👍 workable',
     veryLarge: '⚠️ very large',
     scoreLegend: 'Score Guide',
-    scoreExcellent: 'Excellent — high development potential, prioritise',
-    scoreGood: 'Good — strong candidate, worth investigating',
-    scoreFair: 'Fair — some potential, needs further assessment',
-    scorePoor: 'Low — significant barriers to development',
-    scoreBreakdownTitle: 'How scores are calculated',
-    scoreSize: 'Site size (ideal 600–2500 m²)',
-    scoreSiteType: 'Site type suitability for conversion',
-    scoreSurface: 'Ground surface quality',
-    scoreAccess: 'Public access & parking',
-    scoreInfra: 'Existing lighting & structures',
-    scoreLocation: 'Location & land-use zoning',
+    scoreExcellent: 'Excellent — Prime location, ready for development. Act fast!',
+    scoreGood: 'Good — Strong investment opportunity. Schedule site visit.',
+    scoreFair: 'Fair — Viable with some challenges. Due diligence required.',
+    scorePoor: 'Low — High risk or major obstacles. Consider alternatives.',
+    scoreBreakdownTitle: 'Investment Score Breakdown (100 points)',
+    scoreSize: 'Size (40pts) — 600–2500m² fits 3-4 courts perfectly',
+    scoreSiteType: 'Site Type (25pts) — Disused land & car parks convert easily',
+    scoreSurface: 'Surface (15pts) — Hard surfaces need minimal preparation',
+    scoreAccess: 'Access (15pts) — Customer access & parking drive revenue',
+    scoreInfra: 'Infrastructure (10pts) — Lighting extends playing hours',
+    scoreLocation: 'Location (10pts) — Commercial zones attract more players',
     selectCountry: 'Country',
     language: 'Language',
     // Site types
@@ -162,17 +162,17 @@ const TRANSLATIONS = {
     workable: '👍 nutzbar',
     veryLarge: '⚠️ sehr groß',
     scoreLegend: 'Bewertungsleitfaden',
-    scoreExcellent: 'Ausgezeichnet — hohes Entwicklungspotenzial, priorisieren',
-    scoreGood: 'Gut — starker Kandidat, Untersuchung lohnt sich',
-    scoreFair: 'Mittelmäßig — etwas Potenzial, weitere Bewertung nötig',
-    scorePoor: 'Niedrig — erhebliche Entwicklungshindernisse',
-    scoreBreakdownTitle: 'So werden Bewertungen berechnet',
-    scoreSize: 'Grundstücksgröße (ideal 600–2500 m²)',
-    scoreSiteType: 'Standorteignung zur Umnutzung',
-    scoreSurface: 'Qualität der Oberfläche',
-    scoreAccess: 'Öffentlicher Zugang & Parken',
-    scoreInfra: 'Vorhandene Beleuchtung & Gebäude',
-    scoreLocation: 'Lage & Flächennutzungsplanung',
+    scoreExcellent: 'Ausgezeichnet — Premiumstandort, entwicklungsreif. Schnell handeln!',
+    scoreGood: 'Gut — Starke Investitionsmöglichkeit. Besichtigung terminieren.',
+    scoreFair: 'Mittelmäßig — Machbar mit Herausforderungen. Due diligence nötig.',
+    scorePoor: 'Niedrig — Hohes Risiko oder große Hindernisse. Altern prüfen.',
+    scoreBreakdownTitle: 'Investitionsbewertung (100 Punkte)',
+    scoreSize: 'Größe (40pts) — 600–2500m² passen perfekt für 3-4 Plätze',
+    scoreSiteType: 'Standorttyp (25pts) — Brachflächen & Parkplätze leicht umwandelbar',
+    scoreSurface: 'Oberfläche (15pts) — Hartflächen benötigen minimale Vorbereitung',
+    scoreAccess: 'Zugang (15pts) — Kundenparkplätze & Zugang sichern Umsatz',
+    scoreInfra: 'Infrastruktur (10pts) — Beleuchtung verlängert Spielzeiten',
+    scoreLocation: 'Lage (10pts) — Gewerbegebiete ziehen mehr Spieler an',
     selectCountry: 'Land',
     language: 'Sprache',
     tennisCourts: 'Tennisplätze',
@@ -265,17 +265,17 @@ const TRANSLATIONS = {
     workable: '👍 használható',
     veryLarge: '⚠️ nagyon nagy',
     scoreLegend: 'Pontozási útmutató',
-    scoreExcellent: 'Kiváló — magas fejlesztési potenciál, priorizálandó',
-    scoreGood: 'Jó — erős jelölt, érdemes megvizsgálni',
-    scoreFair: 'Közepes — van potenciál, további értékelés szükséges',
-    scorePoor: 'Alacsony — jelentős fejlesztési akadályok',
-    scoreBreakdownTitle: 'Hogyan számítjuk a pontszámokat',
-    scoreSize: 'Telekméret (ideális 600–2500 m²)',
-    scoreSiteType: 'Helyszín alkalmassága átalakításra',
-    scoreSurface: 'Felszín minősége',
-    scoreAccess: 'Nyilvános hozzáférés & parkolás',
-    scoreInfra: 'Meglévő világítás & épületek',
-    scoreLocation: 'Elhelyezkedés & övezeti besorolás',
+    scoreExcellent: 'Kiváló — Prémium helyszín, fejlesztésre kész. Siessen!',
+    scoreGood: 'Jó — Erős befektetési lehetőség. Időpontot egyeztetni!',
+    scoreFair: 'Közepes — Megvalósítható kihívásokkal. Due diligence szükséges.',
+    scorePoor: 'Alacsony — Magas kockázat vagy nagy akadályok. Alternatívák vizsgálata.',
+    scoreBreakdownTitle: 'Befektetési értékelés (100 pont)',
+    scoreSize: 'Méret (40pts) — 600–2500m² tökéletes 3-4 pályához',
+    scoreSiteType: 'Helyszín (25pts) — Barnamezős területek könnyen átalakíthatók',
+    scoreSurface: 'Felszín (15pts) — Kemény felületek minimális előkészítést igényelnek',
+    scoreAccess: 'Megközelítés (15pts) — Parkolás & hozzáférés növeli a bevételt',
+    scoreInfra: 'Infrastruktúra (10pts) — Világítás meghosszabbítja a játékidőt',
+    scoreLocation: 'Elhelyezkedés (10pts) — Kereskedelmi övezetek vonzzák a játékosokat',
     selectCountry: 'Ország',
     language: 'Nyelv',
     tennisCourts: 'Teniszpályák',
@@ -1174,6 +1174,12 @@ export default function PadelScout() {
 
         const data = await response.json();
         const elements = data.elements || [];
+        
+        // DEBUG: Log padel club results
+        if (siteType.id === 'padel_club') {
+          console.log(`🏸 Padel clubs query returned ${elements.length} elements`);
+          console.log('Sample elements:', elements.slice(0, 3));
+        }
 
         // For padel clubs, cluster nearby courts into single club entries
         if (siteType.id === 'padel_club') {
@@ -1272,6 +1278,12 @@ export default function PadelScout() {
         console.warn(`Error searching ${label}:`, err);
       }
     }
+
+    // DEBUG: Log final results
+    console.log(`🏸 Final results: ${allResults.length} total, ${allResults.filter(r => r.siteType.id === 'padel_club').length} padel clubs`);
+    allResults.filter(r => r.siteType.id === 'padel_club').forEach(r => {
+      console.log(`  - ${r.name} (${r.lat}, ${r.lng}) score=${r.score}`);
+    });
 
     setResults(allResults);
     setSearchProgress('');
