@@ -467,7 +467,7 @@ const SITE_TYPES = [
     emoji: '🎾',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["leisure"="pitch"]["sport"="tennis"](around:${r},${lat},${lng});relation["leisure"="pitch"]["sport"="tennis"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 85,
+    baseScore: 0,
   },
   {
     id: 'car_park',
@@ -475,7 +475,7 @@ const SITE_TYPES = [
     emoji: '🅿️',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="parking"]["parking"="surface"](around:${r},${lat},${lng});way["amenity"="parking"]["parking"!="multi-storey"]["parking"!="underground"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 60,
+    baseScore: 0,
   },
   {
     id: 'disused',
@@ -483,7 +483,7 @@ const SITE_TYPES = [
     emoji: '🏚️',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["disused:leisure"](around:${r},${lat},${lng});way["disused:amenity"](around:${r},${lat},${lng});way["abandoned:leisure"](around:${r},${lat},${lng});way["abandoned:amenity"](around:${r},${lat},${lng});way["landuse"="brownfield"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 70,
+    baseScore: 0,
   },
   {
     id: 'muga',
@@ -491,7 +491,7 @@ const SITE_TYPES = [
     emoji: '🏐',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["leisure"="pitch"]["sport"="multi"](around:${r},${lat},${lng});way["leisure"="pitch"]["sport"~"basketball|netball|volleyball"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 75,
+    baseScore: 0,
   },
   {
     id: 'church',
@@ -499,7 +499,7 @@ const SITE_TYPES = [
     emoji: '⛪',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="place_of_worship"]["religion"="christian"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 50,
+    baseScore: 0,
   },
   {
     id: 'school',
@@ -507,7 +507,7 @@ const SITE_TYPES = [
     emoji: '🏫',
     query: (lat, lng, r) =>
       `[out:json][timeout:30];(way["amenity"="school"](around:${r},${lat},${lng}););out center body;`,
-    baseScore: 55,
+    baseScore: 0,
   },
   {
     id: 'padel_club',
@@ -524,7 +524,7 @@ const SITE_TYPES = [
         node["sport"="padel"](around:${r},${lat},${lng});
       );
       out center body;`,
-    baseScore: 95,
+    baseScore: 0,
   },
 ];
 
@@ -577,12 +577,12 @@ const STATUS_COLORS = {
 };
 
 function scoreSite(element, siteType) {
-  let score = siteType.baseScore;
+  let score = 0;
   const tags = element.tags || {};
   const reasons = [];
   let approxArea = null;
 
-  // Specialized scoring for existing padel clubs
+  // Specialized scoring for existing padel clubs (competitive analysis)
   if (siteType.id === 'padel_club') {
     // Extract court count from name or tags
     const name = (tags.name || '').toLowerCase();
@@ -594,53 +594,41 @@ function scoreSite(element, siteType) {
       courtCount = parseInt(courtMatch[1]);
     }
     
-    // Bonus for multiple courts
-    if (courtCount >= 3) {
-      score += 10;
-      reasons.push(`+10 ${courtCount}+ courts`);
+    // Base score for existing clubs (they're proven viable locations)
+    score = 40;
+    reasons.push('40 Existing club (proven viability)');
+    
+    // Multiple courts indicate success
+    if (courtCount >= 4) {
+      score += 20;
+      reasons.push('20 4+ courts (high demand area)');
     } else if (courtCount >= 2) {
-      score += 5;
-      reasons.push(`+5 ${courtCount} courts`);
+      score += 10;
+      reasons.push('10 Multiple courts');
     }
     
-    // Facility quality bonuses
+    // Facility quality indicators
     if (tags.leisure === 'sports_centre') {
       score += 8;
-      reasons.push('+8 sports centre');
+      reasons.push('8 Professional sports centre');
     }
     
-    // Surface quality (padel typically uses artificial turf)
-    const surface = (tags.surface || '').toLowerCase();
-    if (surface.includes('artificial') || surface.includes('turf') || surface.includes('carpet')) {
-      score += 5;
-      reasons.push('+5 padel surface');
-    } else if (surface.includes('asphalt') || surface.includes('concrete')) {
-      score += 3;
-      reasons.push('+3 hard surface');
-    }
-    
-    // Lighting is crucial for padel
+    // Lighting extends playing hours (crucial for revenue)
     if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
-      score += 8;
-      reasons.push('+8 floodlit');
+      score += 7;
+      reasons.push('7 Floodlit (extended hours)');
     }
     
-    // Access and amenities
-    if (tags.access === 'customers' || tags.access === 'public') {
+    // Parking is essential for customer access
+    if (tags.parking || tags.amenity === 'parking') {
       score += 5;
-      reasons.push('+5 public access');
+      reasons.push('5 Customer parking');
     }
     
-    // Additional amenities
+    // Additional amenities increase dwell time and revenue
     if (tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.shop === 'sports') {
       score += 3;
-      reasons.push('+3 amenities');
-    }
-    
-    // Parking availability
-    if (tags.parking || tags.amenity === 'parking') {
-      score += 3;
-      reasons.push('+3 parking');
+      reasons.push('3 Additional amenities');
     }
     
     // Calculate approximate area based on court count
@@ -651,60 +639,113 @@ function scoreSite(element, siteType) {
     return { score: Math.max(0, Math.min(100, score)), reasons, approxArea };
   }
   
-  // Original scoring for other site types
-  // Surface scoring
-  const surface = (tags.surface || '').toLowerCase();
-  if (surface.includes('asphalt') || surface.includes('concrete') || surface.includes('tarmac')) {
-    score += 10;
-    reasons.push('+10 hard surface');
-  } else if (surface.includes('grass') || surface.includes('clay')) {
-    score -= 5;
-    reasons.push('-5 soft surface');
-  }
-
-  // Disused bonus
-  if (
-    tags['disused:leisure'] ||
-    tags['disused:amenity'] ||
-    tags['abandoned:leisure'] ||
-    tags['abandoned:amenity'] ||
-    tags.landuse === 'brownfield'
-  ) {
-    score += 15;
-    reasons.push('+15 disused/brownfield');
-  }
-
-  // Area scoring
+  // SCORING FOR POTENTIAL DEVELOPMENT SITES
+  // All sites start at 0 and earn points based on development potential
+  
+  // 1. SIZE AND AREA (40 points max) - Most critical factor
   if (element.bounds) {
     const latDiff = Math.abs(element.bounds.maxlat - element.bounds.minlat);
     const lngDiff = Math.abs(element.bounds.maxlon - element.bounds.minlon);
     approxArea = Math.round(latDiff * 111000 * (lngDiff * 111000 * Math.cos((element.center?.lat || 51.4) * Math.PI / 180)));
+    
     if (approxArea >= 600 && approxArea <= 2500) {
-      score += 15;
-      reasons.push('+15 ideal size');
+      score += 40;
+      reasons.push('40 Ideal size: 600-2500m² (3-4 courts)');
     } else if (approxArea >= 400 && approxArea <= 4000) {
-      score += 5;
-      reasons.push('+5 usable size');
+      score += 30;
+      reasons.push('30 Good size: 400-4000m² (2-5 courts)');
+    } else if (approxArea >= 300 && approxArea <= 6000) {
+      score += 20;
+      reasons.push('20 Usable size: 300-6000m²');
     } else if (approxArea > 10000) {
       score -= 10;
-      reasons.push('-10 too large');
+      reasons.push('-10 Too large (>10,000m²)');
+    } else if (approxArea < 300) {
+      score -= 20;
+      reasons.push('-20 Too small (<300m²)');
     }
   }
 
-  // Access scoring
-  const access = (tags.access || '').toLowerCase();
-  if (access === 'private') {
-    score -= 10;
-    reasons.push('-10 private access');
-  } else if (access === 'no') {
-    score -= 20;
-    reasons.push('-20 no access');
+  // 2. SITE TYPE SUITABILITY (25 points max)
+  if (siteType.id === 'disused') {
+    score += 25;
+    reasons.push('25 Disused land (ready for redevelopment)');
+  } else if (siteType.id === 'car_park') {
+    score += 20;
+    reasons.push('20 Surface car park (flat, clear)');
+  } else if (siteType.id === 'tennis') {
+    score += 18;
+    reasons.push('18 Tennis court (similar sports use)');
+  } else if (siteType.id === 'muga') {
+    score += 15;
+    reasons.push('15 Multi-sport court (sports facility)');
+  } else if (siteType.id === 'school') {
+    score += 10;
+    reasons.push('10 School grounds (community use)');
+  } else if (siteType.id === 'church') {
+    score += 8;
+    reasons.push('8 Church grounds (community access)');
   }
 
-  // Lighting bonus
-  if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
+  // 3. SURFACE QUALITY (15 points max)
+  const surface = (tags.surface || '').toLowerCase();
+  if (surface.includes('asphalt') || surface.includes('concrete') || surface.includes('tarmac')) {
+    score += 15;
+    reasons.push('15 Hard surface (ready for courts)');
+  } else if (surface.includes('artificial') || surface.includes('turf')) {
+    score += 12;
+    reasons.push('12 Artificial surface (sports-ready)');
+  } else if (surface.includes('gravel') || surface.includes('compacted')) {
+    score += 8;
+    reasons.push('8 Compacted surface (needs preparation)');
+  } else if (surface.includes('grass') || surface.includes('soil')) {
     score += 5;
-    reasons.push('+5 has lighting');
+    reasons.push('5 Soft surface (needs groundwork)');
+  }
+
+  // 4. ACCESS AND INFRASTRUCTURE (15 points max)
+  const access = (tags.access || '').toLowerCase();
+  if (access === 'public' || access === 'customers') {
+    score += 10;
+    reasons.push('10 Public access');
+  } else if (access === 'private') {
+    score -= 5;
+    reasons.push('-5 Private access (permission needed)');
+  } else if (access === 'no') {
+    score -= 15;
+    reasons.push('-15 No access');
+  }
+
+  // Parking availability
+  if (tags.parking || tags.amenity === 'parking') {
+    score += 5;
+    reasons.push('5 Parking available');
+  }
+
+  // 5. EXISTING INFRASTRUCTURE (10 points max)
+  // Lighting (extends playing hours, increases revenue)
+  if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
+    score += 8;
+    reasons.push('8 Existing lighting');
+  }
+
+  // Buildings/structures (can be repurposed)
+  if (tags.building || tags.amenity === 'building') {
+    score += 5;
+    reasons.push('5 Existing structures');
+  }
+
+  // 6. LOCATION FACTORS (10 points max)
+  // Near existing sports facilities (sports cluster effect)
+  // Note: This would require additional spatial queries, simplified for now
+  
+  // Urban vs rural (based on landuse)
+  if (tags.landuse === 'commercial' || tags.landuse === 'industrial' || tags.landuse === 'retail') {
+    score += 5;
+    reasons.push('5 Commercial/industrial zone');
+  } else if (tags.landuse === 'residential') {
+    score += 3;
+    reasons.push('3 Residential area');
   }
 
   return { score: Math.max(0, Math.min(100, score)), reasons, approxArea };
