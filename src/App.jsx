@@ -1183,6 +1183,8 @@ export default function PadelScout() {
 
         // For padel clubs, cluster nearby courts into single club entries
         if (siteType.id === 'padel_club') {
+          console.log(`🏸 Processing ${elements.length} padel elements for clustering`);
+          
           // Group courts within 100m of each other as one club
           const clusters = [];
           const used = new Set();
@@ -1212,8 +1214,12 @@ export default function PadelScout() {
             clusters.push(cluster);
           });
 
-          clusters.forEach((cluster) => {
+          console.log(`🏸 Created ${clusters.length} clusters from ${elements.length} elements`);
+
+          clusters.forEach((cluster, clusterIdx) => {
             const courtCount = cluster.length;
+            console.log(`🏸 Cluster ${clusterIdx + 1}: ${courtCount} courts`);
+            
             // Use the element with the most tags or a name as representative
             const rep = cluster.find((c) => c.tags?.name) || cluster.reduce((best, c) => (Object.keys(c.tags || {}).length > Object.keys(best.tags || {}).length ? c : best), cluster[0]);
             const repLat = rep.center?.lat || rep.lat;
@@ -1227,7 +1233,7 @@ export default function PadelScout() {
               || `Padel Club (${courtCount} ${courtCount === 1 ? 'court' : 'courts'}) near ${repLat.toFixed(4)}, ${repLng.toFixed(4)}`;
 
             const { score, reasons, approxArea } = scoreSite({ ...rep, tags: repTags }, siteType);
-            allResults.push({
+            const result = {
               id: `${rep.type}-${rep.id}`,
               osmId: rep.id,
               osmType: rep.type,
@@ -1241,7 +1247,9 @@ export default function PadelScout() {
               country: country,
               courtCount,
               name: clubName,
-            });
+            };
+            console.log(`🏸 Adding club: ${clubName} at (${repLat}, ${repLng}) score=${score}`);
+            allResults.push(result);
           });
         } else {
           elements.forEach((el) => {
