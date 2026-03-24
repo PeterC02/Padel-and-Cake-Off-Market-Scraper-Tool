@@ -1184,54 +1184,86 @@ export default function PadelScout() {
         const data = await response.json();
         const elements = data.elements || [];
         
-        // DEBUG: Log padel club results
+        // SPECIAL HANDLING: Fetch padel clubs from pre-scraped JSON database
         if (siteType.id === 'padel_club') {
-          console.log(`🏸 Padel clubs query returned ${elements.length} elements from Overpass API`);
-          console.log(`🏸 Search center: ${lat}, ${lng} with radius: ${radius}m (using 50km min)`);
-          console.log('🏸 All elements:', elements.map(el => ({
-            name: el.tags?.name || el.tags?.operator || 'Unnamed',
-            lat: el.center?.lat || el.lat,
-            lon: el.center?.lon || el.lon,
-            tags: el.tags
-          })));
-        }
-
-        // TEMPORARY DEBUG: Show ALL padel courts individually (no clustering)
-        if (siteType.id === 'padel_club') {
-          console.log(`🏸 SIMPLE MODE: Processing ${elements.length} padel elements WITHOUT clustering`);
+          console.log(`🏸 Fetching padel clubs from static database...`);
           
-          elements.forEach((el, idx) => {
-            const elLat = el.center?.lat || el.lat;
-            const elLng = el.center?.lon || el.lon;
-            if (!elLat || !elLng) {
-              console.log(`🏸 Skipping element ${idx} - no coordinates`);
-              return;
+          try {
+            // Fetch from GitHub-hosted JSON file (updated daily by scraper)
+            const jsonUrl = 'https://raw.githubusercontent.com/PeterC02/Padel-and-Cake-Off-Market-Scraper-Tool/main/data/padel-clubs.json';
+            const jsonResponse = await fetch(jsonUrl, { cache: 'default' }); // Browser caches for 5 min
+            
+            if (jsonResponse.ok) {
+              const clubData = await jsonResponse.json();
+              console.log(`🏸 Loaded ${clubData.totalClubs} clubs from database (last updated: ${clubData.lastUpdated})`);
+              
+              // Filter clubs within search radius
+              const nearbyClubs = clubData.clubs.filter(club => {
+                const distance = Math.sqrt(
+                  Math.pow((club.latitude - lat) * 111000, 2) + 
+                  Math.pow((club.longitude - lng) * 111000 * Math.cos(lat * Math.PI / 180), 2)
+                );
+                return distance <= 50000; // 50km radius
+              });
+              
+              console.log(`🏸 Found ${nearbyClubs.length} clubs within 50km of search center`);
+              
+              // Add clubs to results
+              nearbyClubs.forEach(club => {
+                const result = {
+                  id: club.id,
+                  osmId: club.id,
+                  osmType: 'way',
+                  lat: club.latitude,
+                  lng: club.longitude,
+                  tags: {},
+                  siteType: siteType,
+                  score: null, // Existing clubs have no score
+                  reasons: [`Existing padel facility (${club.courtCount} ${club.courtCount === 1 ? 'court' : 'courts'})`],
+                  approxArea: club.courtCount * 200,
+                  country: club.country,
+                  courtCount: club.courtCount,
+                  name: club.name,
+                };
+                allResults.push(result);
+              });
+              
+              console.log(`🏸 Successfully added ${nearbyClubs.length} clubs from database`);
+            } else {
+              throw new Error(`JSON fetch failed: ${jsonResponse.status}`);
             }
+          } catch (error) {
+            console.warn(`🏸 Failed to fetch from JSON database: ${error.message}`);
+            console.log(`🏸 Falling back to OSM Overpass API...`);
+            
+            // Fallback to OSM if JSON fetch fails
+            elements.forEach((el, idx) => {
+              const elLat = el.center?.lat || el.lat;
+              const elLng = el.center?.lon || el.lon;
+              if (!elLat || !elLng) return;
 
-            const name = el.tags?.name || el.tags?.operator || `Padel Court ${idx + 1}`;
-            const { score, reasons, approxArea } = scoreSite(el, siteType);
+              const name = el.tags?.name || el.tags?.operator || `Padel Court ${idx + 1}`;
+              const { score, reasons, approxArea } = scoreSite(el, siteType);
+              
+              allResults.push({
+                id: `${el.type}-${el.id}`,
+                osmId: el.id,
+                osmType: el.type,
+                lat: elLat,
+                lng: elLng,
+                tags: el.tags || {},
+                siteType: siteType,
+                score,
+                reasons,
+                approxArea: 200,
+                country: country,
+                courtCount: 1,
+                name: name,
+              });
+            });
             
-            const result = {
-              id: `${el.type}-${el.id}`,
-              osmId: el.id,
-              osmType: el.type,
-              lat: elLat,
-              lng: elLng,
-              tags: el.tags || {},
-              siteType: siteType,
-              score,
-              reasons,
-              approxArea: 200,
-              country: country,
-              courtCount: 1,
-              name: name,
-            };
-            
-            console.log(`🏸 Adding padel court ${idx + 1}/${elements.length}: ${name} at (${elLat}, ${elLng}) score=${score}`);
-            allResults.push(result);
-          });
-          
-          console.log(`🏸 TOTAL ADDED: ${elements.length} padel courts to allResults`);
+            console.log(`🏸 Fallback: Added ${elements.length} clubs from OSM`);
+          }
         } else {
           elements.forEach((el) => {
             const elLat = el.center?.lat || el.lat;
