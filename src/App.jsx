@@ -547,9 +547,18 @@ const SITE_TYPES = [
     labelKey: 'padelClubs',
     emoji: '🏸',
     // Padel clubs are sparse — always search a VERY wide area (min 50km) to catch all nearby facilities
+    // Search multiple OSM tags to ensure we catch ALL padel facilities
     query: (lat, lng, r) => {
       const padelRadius = Math.max(r, 50000); // 50km minimum to ensure comprehensive coverage
-      return `[out:json][timeout:30];(way["sport"="padel"](around:${padelRadius},${lat},${lng});node["sport"="padel"](around:${padelRadius},${lat},${lng});relation["sport"="padel"](around:${padelRadius},${lat},${lng}););out center body;`;
+      return `[out:json][timeout:30];(
+        way["sport"="padel"](around:${padelRadius},${lat},${lng});
+        node["sport"="padel"](around:${padelRadius},${lat},${lng});
+        relation["sport"="padel"](around:${padelRadius},${lat},${lng});
+        way["leisure"="sports_centre"]["sport"~"padel"](around:${padelRadius},${lat},${lng});
+        node["leisure"="sports_centre"]["sport"~"padel"](around:${padelRadius},${lat},${lng});
+        way["name"~"padel",i](around:${padelRadius},${lat},${lng});
+        node["name"~"padel",i](around:${padelRadius},${lat},${lng});
+      );out center body;`;
     },
     baseScore: 0,
   },
@@ -1177,8 +1186,14 @@ export default function PadelScout() {
         
         // DEBUG: Log padel club results
         if (siteType.id === 'padel_club') {
-          console.log(`🏸 Padel clubs query returned ${elements.length} elements`);
-          console.log('Sample elements:', elements.slice(0, 3));
+          console.log(`🏸 Padel clubs query returned ${elements.length} elements from Overpass API`);
+          console.log(`🏸 Search center: ${lat}, ${lng} with radius: ${radius}m (using 50km min)`);
+          console.log('🏸 All elements:', elements.map(el => ({
+            name: el.tags?.name || el.tags?.operator || 'Unnamed',
+            lat: el.center?.lat || el.lat,
+            lon: el.center?.lon || el.lon,
+            tags: el.tags
+          })));
         }
 
         // TEMPORARY DEBUG: Show ALL padel courts individually (no clustering)
@@ -1739,8 +1754,9 @@ export default function PadelScout() {
                               <span style={{ fontWeight: '600', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.name}</span>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: '10px',
-                                backgroundColor: getScoreColor(site.score), color: 'white', fontSize: '10px', fontWeight: 'bold', flexShrink: 0,
-                              }}>{site.score}</span>
+                                backgroundColor: site.score === null ? '#7c3aed' : getScoreColor(site.score), 
+                                color: 'white', fontSize: '10px', fontWeight: 'bold', flexShrink: 0,
+                              }}>{site.score === null ? 'EXISTING' : site.score}</span>
                             </div>
                             <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px' }}>
                               {getSiteTypeLabel(site.siteType, t)} &middot; {site.lat.toFixed(4)}, {site.lng.toFixed(4)}
