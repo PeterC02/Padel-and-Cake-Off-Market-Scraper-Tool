@@ -546,9 +546,9 @@ const SITE_TYPES = [
     id: 'padel_club',
     labelKey: 'padelClubs',
     emoji: '🏸',
-    // Padel clubs are sparse — always search a wide area (min 15km)
+    // Padel clubs are sparse — always search a VERY wide area (min 50km) to catch all nearby facilities
     query: (lat, lng, r) => {
-      const padelRadius = Math.max(r, 15000);
+      const padelRadius = Math.max(r, 50000); // 50km minimum to ensure comprehensive coverage
       return `[out:json][timeout:30];(way["sport"="padel"](around:${padelRadius},${lat},${lng});node["sport"="padel"](around:${padelRadius},${lat},${lng});relation["sport"="padel"](around:${padelRadius},${lat},${lng}););out center body;`;
     },
     baseScore: 0,
@@ -609,56 +609,29 @@ function scoreSite(element, siteType) {
   const reasons = [];
   let approxArea = null;
 
-  // Specialized scoring for existing padel clubs (competitive analysis)
+  // Existing padel clubs - NO SCORING, just reference markers for competitive analysis
   if (siteType.id === 'padel_club') {
     const courtCount = tags._courtCount || 1;
     
-    // Base: existing club is a proven viable location
-    score = 40;
-    reasons.push('40 Existing club (proven location)');
+    // Existing clubs are NOT scored - they're reference points only
+    score = null; // No score for existing facilities
+    reasons.push(`Existing padel facility (${courtCount} ${courtCount === 1 ? 'court' : 'courts'})`);
     
-    // Court count is the strongest signal of demand
-    if (courtCount >= 6) {
-      score += 25;
-      reasons.push(`25 Major facility (${courtCount} courts)`);
-    } else if (courtCount >= 4) {
-      score += 20;
-      reasons.push(`20 Large club (${courtCount} courts)`);
-    } else if (courtCount >= 2) {
-      score += 12;
-      reasons.push(`12 Multi-court club (${courtCount} courts)`);
-    } else {
-      score += 5;
-      reasons.push('5 Single court');
-    }
-    
-    // Facility quality
     if (tags.leisure === 'sports_centre') {
-      score += 8;
-      reasons.push('8 Professional sports centre');
+      reasons.push('Professional sports centre');
     }
     
-    // Floodlighting = extended hours = more revenue
     if (tags.lit === 'yes' || tags.floodlit === 'yes' || tags.lighting === 'yes') {
-      score += 7;
-      reasons.push('7 Floodlit (extended hours)');
+      reasons.push('Floodlit facility');
     }
     
-    // Has a website = established business
     if (tags.website || tags['contact:website']) {
-      score += 5;
-      reasons.push('5 Established business (has website)');
-    }
-    
-    // Customer access confirmed
-    if (tags.access === 'customers' || tags.access === 'public') {
-      score += 3;
-      reasons.push('3 Public/customer access');
+      reasons.push('Established business');
     }
     
     approxArea = courtCount * 200;
     
-    return { score: Math.max(0, Math.min(100, score)), reasons, approxArea };
+    return { score: null, reasons, approxArea }; // null score = existing facility, not a development opportunity
   }
   
   // SCORING FOR POTENTIAL DEVELOPMENT SITES
@@ -798,6 +771,27 @@ function setStorageItem(key, value) {
 }
 
 function createMarkerIcon(score, emoji) {
+  // Existing padel clubs (score=null) show as emoji only, development sites show score
+  if (score === null) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        background:#7c3aed;
+        color:white;
+        border-radius:50%;
+        width:36px;height:36px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:18px;
+        border:3px solid white;
+        box-shadow:0 2px 8px rgba(0,0,0,0.4);
+        cursor:pointer;
+      ">${emoji}</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -20],
+    });
+  }
+  
   const color = getScoreColor(score);
   return L.divIcon({
     className: '',
@@ -859,7 +853,7 @@ export default function PadelScout() {
   const [sidebarView, setSidebarView] = useState('controls');
   const [dismissedSites, setDismissedSites] = useState(new Set());
   const [showExistingPadelClubs, setShowExistingPadelClubs] = useState(true);
-  const [showScoreGuide, setShowScoreGuide] = useState(false);
+  const [showScoreGuide, setShowScoreGuide] = useState(true); // ALWAYS visible by default for buyers
 
   // Translation and country config helpers
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
@@ -984,9 +978,15 @@ export default function PadelScout() {
     if (!layer) return;
     layer.clearLayers();
 
-    const filtered = results.filter((r) => r.score >= minScore);
+    // Include existing clubs (score=null) and development sites above minScore
+    const filtered = results.filter((r) => r.score === null || r.score >= minScore);
     const sorted = [...filtered];
-    if (sortBy === 'score') sorted.sort((a, b) => b.score - a.score);
+    if (sortBy === 'score') sorted.sort((a, b) => {
+      if (a.score === null && b.score === null) return 0;
+      if (a.score === null) return 1;
+      if (b.score === null) return -1;
+      return b.score - a.score;
+    });
     else if (sortBy === 'type') sorted.sort((a, b) => getSiteTypeLabel(a.siteType, t).localeCompare(getSiteTypeLabel(b.siteType, t)));
 
     sorted.forEach((site) => {
@@ -1003,7 +1003,7 @@ export default function PadelScout() {
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
             <span style="font-size:18px;">${site.siteType.emoji}</span>
             <strong style="font-size:13px;flex:1;">${site.name}</strong>
-            <span style="background:${getScoreColor(site.score)};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold;">${site.score}/100</span>
+            <span style="background:#7c3aed;color:white;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">EXISTING CLUB</span>
           </div>
           <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${getSiteTypeLabel(site.siteType, t)} &middot; ${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}</div>
           ${site.courtCount ? `<div style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:6px;background:#f3e8ff;padding:4px 8px;border-radius:4px;display:inline-block;">🏸 ${site.courtCount} ${site.courtCount === 1 ? 'court' : 'courts'}</div>` : ''}
@@ -1295,8 +1295,15 @@ export default function PadelScout() {
   }, []);
 
   const filteredResults = useMemo(() => {
-    let filtered = results.filter((r) => r.score >= minScore && !dismissedSites.has(r.id));
-    if (sortBy === 'score') filtered.sort((a, b) => b.score - a.score);
+    // Existing padel clubs (score=null) always show, development sites filtered by minScore
+    let filtered = results.filter((r) => (r.score === null || r.score >= minScore) && !dismissedSites.has(r.id));
+    if (sortBy === 'score') filtered.sort((a, b) => {
+      // Existing clubs (null score) go to bottom, scored sites sorted by score
+      if (a.score === null && b.score === null) return 0;
+      if (a.score === null) return 1;
+      if (b.score === null) return -1;
+      return b.score - a.score;
+    });
     else if (sortBy === 'type') filtered.sort((a, b) => getSiteTypeLabel(a.siteType, t).localeCompare(getSiteTypeLabel(b.siteType, t)));
     return filtered;
   }, [results, sortBy, minScore, dismissedSites, t]);
