@@ -1181,76 +1181,42 @@ export default function PadelScout() {
           console.log('Sample elements:', elements.slice(0, 3));
         }
 
-        // For padel clubs, cluster nearby courts into single club entries
+        // TEMPORARY DEBUG: Show ALL padel courts individually (no clustering)
         if (siteType.id === 'padel_club') {
-          console.log(`🏸 Processing ${elements.length} padel elements for clustering`);
+          console.log(`🏸 SIMPLE MODE: Processing ${elements.length} padel elements WITHOUT clustering`);
           
-          // Group courts within 100m of each other as one club
-          const clusters = [];
-          const used = new Set();
-
           elements.forEach((el, idx) => {
-            if (used.has(idx)) return;
             const elLat = el.center?.lat || el.lat;
             const elLng = el.center?.lon || el.lon;
-            if (!elLat || !elLng) return;
+            if (!elLat || !elLng) {
+              console.log(`🏸 Skipping element ${idx} - no coordinates`);
+              return;
+            }
 
-            const cluster = [el];
-            used.add(idx);
-
-            elements.forEach((other, oidx) => {
-              if (used.has(oidx)) return;
-              const oLat = other.center?.lat || other.lat;
-              const oLng = other.center?.lon || other.lon;
-              if (!oLat || !oLng) return;
-              // ~100m proximity check
-              const dist = Math.sqrt(Math.pow((elLat - oLat) * 111000, 2) + Math.pow((elLng - oLng) * 111000 * Math.cos(elLat * Math.PI / 180), 2));
-              if (dist < 100) {
-                cluster.push(other);
-                used.add(oidx);
-              }
-            });
-
-            clusters.push(cluster);
-          });
-
-          console.log(`🏸 Created ${clusters.length} clusters from ${elements.length} elements`);
-
-          clusters.forEach((cluster, clusterIdx) => {
-            const courtCount = cluster.length;
-            console.log(`🏸 Cluster ${clusterIdx + 1}: ${courtCount} courts`);
+            const name = el.tags?.name || el.tags?.operator || `Padel Court ${idx + 1}`;
+            const { score, reasons, approxArea } = scoreSite(el, siteType);
             
-            // Use the element with the most tags or a name as representative
-            const rep = cluster.find((c) => c.tags?.name) || cluster.reduce((best, c) => (Object.keys(c.tags || {}).length > Object.keys(best.tags || {}).length ? c : best), cluster[0]);
-            const repLat = rep.center?.lat || rep.lat;
-            const repLng = rep.center?.lon || rep.lon;
-            const repTags = { ...(rep.tags || {}), _courtCount: courtCount };
-
-            // Find best name from any court in the cluster
-            const clubName = cluster.map((c) => c.tags?.name).filter(Boolean).find((n) => !/^court\s+\d/i.test(n))
-              || cluster.map((c) => c.tags?.operator).filter(Boolean)[0]
-              || cluster.map((c) => c.tags?.name).filter(Boolean)[0]
-              || `Padel Club (${courtCount} ${courtCount === 1 ? 'court' : 'courts'}) near ${repLat.toFixed(4)}, ${repLng.toFixed(4)}`;
-
-            const { score, reasons, approxArea } = scoreSite({ ...rep, tags: repTags }, siteType);
             const result = {
-              id: `${rep.type}-${rep.id}`,
-              osmId: rep.id,
-              osmType: rep.type,
-              lat: repLat,
-              lng: repLng,
-              tags: repTags,
+              id: `${el.type}-${el.id}`,
+              osmId: el.id,
+              osmType: el.type,
+              lat: elLat,
+              lng: elLng,
+              tags: el.tags || {},
               siteType: siteType,
               score,
               reasons,
-              approxArea: courtCount * 200,
+              approxArea: 200,
               country: country,
-              courtCount,
-              name: clubName,
+              courtCount: 1,
+              name: name,
             };
-            console.log(`🏸 Adding club: ${clubName} at (${repLat}, ${repLng}) score=${score}`);
+            
+            console.log(`🏸 Adding padel court ${idx + 1}/${elements.length}: ${name} at (${elLat}, ${elLng}) score=${score}`);
             allResults.push(result);
           });
+          
+          console.log(`🏸 TOTAL ADDED: ${elements.length} padel courts to allResults`);
         } else {
           elements.forEach((el) => {
             const elLat = el.center?.lat || el.lat;
