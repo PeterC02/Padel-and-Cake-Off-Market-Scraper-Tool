@@ -1,0 +1,19 @@
+{
+  "name": "padel-scout-scraper",
+  "version": "1.0.0",
+  "description": "Scrapes padel club data from multiple sources",
+  "main": "index.js",
+  "scripts": {
+    "scrape": "node index.js",
+    "test": "node index.js --test"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "cheerio": "^1.0.0-rc.12",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

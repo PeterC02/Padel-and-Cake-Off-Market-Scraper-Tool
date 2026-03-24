@@ -1,0 +1,40 @@
+name: Scrape Padel Clubs
+
+on:
+  schedule:
+    # Run daily at 2am UTC
+    - cron: '0 2 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: |
+          cd scraper
+          npm install
+      
+      - name: Run scraper
+        run: |
+          cd scraper
+          node index.js
+      
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name 'Padel Scout Bot'
+          git config --global user.email 'bot@padelscout.com'
+          git add data/padel-clubs.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🏸 Auto-update padel clubs data [$(date +'%Y-%m-%d')]" && git push)
